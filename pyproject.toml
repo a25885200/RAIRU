@@ -1,8 +1,13 @@
 [project]
 name = "RAIRU"
-version = "0.1.0"
+version = "0.1.0.1"
 description = "Remote control"
-anthor = "Tim Leung"
+authors = [
+    { name="Tim Leung", email="timwork0314@gmail.com" }
+]
+dependencies = [
+    "some_dependency>=1.0"
+]
 
 [build-system]
 build-backend = "flit_core.buildapi"
