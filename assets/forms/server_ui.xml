@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <application title="Remote Control Server" geometry="600x700" min-width="500" min-height="600" />
+    
+    <ui>
+        <!-- Variables -->
+        <var id="status_var" type="string" value="Stopped" />
+        <var id="ip_var" type="string" value="" />
+        <var id="port_var" type="int" value="5000" />
+        <var id="password_var" type="string" value="secure_password" />
+        <var id="show_password_var" type="boolean" value="false" />
+        <var id="quality_var" type="int" value="30" />
+        <var id="rate_var" type="double" value="0.5" />
+        
+        <!-- Main Frame -->
+        <frame id="main_frame" padding="10" layout="pack" fill="both" expand="true">
+            
+            <!-- Server Configuration Section -->
+            <labelframe id="config_frame" text="Server Configuration" padding="10" layout="pack" fill="x" padx="5" pady="5">
+                
+                <!-- Status Indicator -->
+                <frame id="status_frame" layout="pack" fill="x" pady="5">
+                    <label text="Status:" layout="pack" side="left" padx="0,10" />
+                    <label id="status_indicator" textvariable="status_var" foreground="red" layout="pack" side="left" />
+                </frame>
+                
+                <!-- Host Information -->
+                <frame id="host_frame" layout="pack" fill="x" pady="5">
+                    <label text="IP Address:" layout="pack" side="left" padx="0,10" />
+                    <combobox id="ip_combo" textvariable="ip_var" state="readonly" layout="pack" side="left" fill="x" expand="true" />
+                </frame>
+                
+                <!-- Port Configuration -->
+                <frame id="port_frame" layout="pack" fill="x" pady="5">
+                    <label text="Port:" layout="pack" side="left" padx="0,10" />
+                    <entry id="port_entry" textvariable="port_var" width="8" layout="pack" side="left" />
+                </frame>
+                
+                <!-- Password Configuration -->
+                <frame id="pass_frame" layout="pack" fill="x" pady="5">
+                    <label text="Password:" layout="pack" side="left" padx="0,10" />
+                    <entry id="pass_entry" textvariable="password_var" show="•" layout="pack" side="left" fill="x" expand="true" />
+                    <checkbutton id="show_pass_check" text="Show" variable="show_password_var" command="toggle_password_visibility" layout="pack" side="left" padx="5,0" />
+                </frame>
+                
+                <!-- Quality Settings -->
+                <frame id="quality_frame" layout="pack" fill="x" pady="5">
+                    <label text="Image Quality:" layout="pack" side="left" padx="0,10" />
+                    <scale id="quality_scale" variable="quality_var" from="10" to="90" orient="horizontal" layout="pack" side="left" fill="x" expand="true" />
+                    <label id="quality_label" textvariable="quality_var" width="3" layout="pack" side="left" padx="5,0" />
+                </frame>
+                
+                <!-- Update Rate Settings -->
+                <frame id="rate_frame" layout="pack" fill="x" pady="5">
+                    <label text="Update Rate (seconds):" layout="pack" side="left" padx="0,10" />
+                    <combobox id="rate_combo" textvariable="rate_var" values="0.1,0.2,0.5,1.0,2.0" state="readonly" width="5" layout="pack" side="left" />
+                </frame>
+                
+                <!-- Start/Stop Button -->
+                <frame id="btn_frame" layout="pack" fill="x" pady="10">
+                    <button id="start_btn" text="Start Server" command="toggle_server" layout="pack" fill="x" />
+                </frame>
+            </labelframe>
+            
+            <!-- Connected Clients Section -->
+            <labelframe id="clients_frame" text="Connected Clients" padding="10" layout="pack" fill="x" padx="5" pady="5">
+                <listbox id="client_listbox" height="3" layout="pack" fill="x" expand="true" />
+                <button id="disconnect_btn" text="Disconnect Selected" command="disconnect_client" layout="pack" fill="x" pady="5,0" />
+            </labelframe>
+            
+            <!-- Log Section -->
+            <labelframe id="log_frame" text="Activity Log" padding="10" layout="pack" fill="both" expand="true" padx="5" pady="5">
+                <scrolledtext id="log_text" wrap="word" height="10" layout="pack" fill="both" expand="true" />
+            </labelframe>
+            
+            <!-- Screen Preview Section -->
+            <labelframe id="preview_frame" text="Screen Preview" padding="10" layout="pack" fill="both" expand="true" padx="5" pady="5">
+                <canvas id="preview_canvas" bg="black" height="200" layout="pack" fill="both" expand="true" />
+            </labelframe>
+            
+        </frame>
+    </ui>
+</root>

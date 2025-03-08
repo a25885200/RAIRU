@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <application title="Remote Control Manager" geometry="900x600" min-width="800" min-height="500" />
+    
+    <ui>
+        <!-- Variables -->
+        <var id="status_var" type="string" value="Ready" />
+        <var id="search_var" type="string" value="" />
+        <var id="selected_client_var" type="string" value="" />
+        
+        <!-- Main Frame -->
+        <frame id="main_frame" padding="10" layout="pack" fill="both" expand="true">
+            
+            <!-- Header Frame -->
+            <frame id="header_frame" layout="pack" fill="x" pady="0,10">
+                <label text="Remote Control Client Manager" font="-size 16 -weight bold" layout="pack" side="left" />
+                <label textvariable="status_var" layout="pack" side="right" />
+            </frame>
+            
+            <!-- Content Frame (split into left and right panels) -->
+            <frame id="content_frame" layout="pack" fill="both" expand="true">
+                
+                <!-- Left Panel: Client List -->
+                <frame id="left_panel" width="300" layout="pack" side="left" fill="both" expand="true" padx="0,10">
+                    
+                    <!-- Search Frame -->
+                    <frame id="search_frame" layout="pack" fill="x" pady="0,10">
+                        <entry id="search_entry" textvariable="search_var" placeholder="Search clients..." layout="pack" side="left" fill="x" expand="true" />
+                        <button id="search_btn" text="Search" command="search_clients" layout="pack" side="right" padx="5,0" />
+                    </frame>
+                    
+                    <!-- Clients List with Scrollbar -->
+                    <frame id="list_container" layout="pack" fill="both" expand="true">
+                        <listbox id="clients_listbox" selectmode="browse" layout="pack" side="left" fill="both" expand="true" />
+                        <scrollbar id="list_scrollbar" orient="vertical" layout="pack" side="right" fill="y" />
+                    </frame>
+                    
+                    <!-- Action Buttons -->
+                    <frame id="action_frame" layout="pack" fill="x" pady="10,0">
+                        <button id="new_btn" text="New Client" command="new_client" layout="pack" side="left" padx="0,5" />
+                        <button id="edit_btn" text="Edit" command="edit_client" layout="pack" side="left" padx="0,5" />
+                        <button id="delete_btn" text="Delete" command="delete_client" layout="pack" side="left" />
+                        <button id="connect_btn" text="Connect" command="connect_client" layout="pack" side="right" />
+                    </frame>
+                </frame>
+                
+                <!-- Right Panel: Client Details -->
+                <labelframe id="right_panel" text="Client Details" layout="pack" side="right" fill="both" expand="true">
+                    
+                    <!-- Details Form -->
+                    <frame id="details_frame" padding="10" layout="pack" fill="both" expand="true">
+                        
+                        <!-- Nickname -->
+                        <frame id="nickname_frame" layout="pack" fill="x" pady="5">
+                            <label text="Nickname:" width="10" anchor="w" layout="pack" side="left" />
+                            <entry id="nickname_entry" layout="pack" side="left" fill="x" expand="true" />
+                        </frame>
+                        
+                        <!-- Host -->
+                        <frame id="host_frame" layout="pack" fill="x" pady="5">
+                            <label text="Host:" width="10" anchor="w" layout="pack" side="left" />
+                            <entry id="host_entry" layout="pack" side="left" fill="x" expand="true" />
+                        </frame>
+                        
+                        <!-- Port -->
+                        <frame id="port_frame" layout="pack" fill="x" pady="5">
+                            <label text="Port:" width="10" anchor="w" layout="pack" side="left" />
+                            <entry id="port_entry" layout="pack" side="left" fill="x" expand="true" />
+                        </frame>
+                        
+                        <!-- Password -->
+                        <frame id="password_frame" layout="pack" fill="x" pady="5">
+                            <label text="Password:" width="10" anchor="w" layout="pack" side="left" />
+                            <entry id="password_entry" show="•" layout="pack" side="left" fill="x" expand="true" />
+                            <checkbutton id="show_pass_check" text="Show" command="toggle_password_visibility" layout="pack" side="right" padx="5,0" />
+                        </frame>
+                        
+                        <!-- Buttons -->
+                        <frame id="buttons_frame" layout="pack" fill="x" pady="10,0">
+                            <button id="save_btn" text="Save" command="save_client" layout="pack" side="right" padx="5,0" />
+                            <button id="cancel_btn" text="Cancel" command="cancel_edit" layout="pack" side="right" />
+                        </frame>
+                        
+                        <!-- Last Connected -->
+                        <frame id="last_conn_frame" layout="pack" fill="x" pady="20,5">
+                            <label text="Last Connected:" width="12" anchor="w" layout="pack" side="left" />
+                            <label id="last_conn_label" text="Never" layout="pack" side="left" fill="x" expand="true" />
+                        </frame>
+                        
+                        <!-- Notes -->
+                        <labelframe id="notes_frame" text="Notes" layout="pack" fill="both" expand="true" pady="5">
+                            <scrolledtext id="notes_text" height="5" width="30" wrap="word" layout="pack" fill="both" expand="true" />
+                        </labelframe>
+                    </frame>
+                </labelframe>
+            </frame>
+            
+            <!-- Status Bar -->
+            <frame id="status_bar" layout="pack" fill="x" pady="10,0">
+                <label text="Client Manager v1.0" layout="pack" side="left" />
+                <label text="Clients: 0" id="client_count_label" layout="pack" side="right" />
+            </frame>
+            
+        </frame>
+    </ui>
+</root>

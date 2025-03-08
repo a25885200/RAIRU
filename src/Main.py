@@ -1,80 +1,503 @@
-
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import xml.etree.ElementTree as ET
 import os
-import lib.Server as sc
-import lib.Client as cc
+import json
+import tkinter as tk
+from tkinter import ttk, messagebox
+import subprocess
+import datetime
+from ui_parser import TkUIParser
 
-class MainUI:
-    form = tk.Tk()
-
-    def __init__(self, xml_file):
-        root = self.load_ui_from_xml(xml_file)
-        if root == 0 : return None
-
-        title = root.find('title').text
-        button_text = root.find('button/text').text
-
-        # Get resolution if needed
-        width = int(root.find('resolution/width').text)
-        height = int(root.find('resolution/height').text)
-
-        self.form.title(title)
-        self.form.geometry("400x300")  # Default geometry
-        self.form.geometry(f"{width}x{height}")  # Set geometry from XML
-
-        # Create a label
-        label = tk.Label(self.form, text="Welcome to RAIRU!", font=("Arial", 16))
-        label.pack(pady=20)
-
-        # Create a button to show resolution
-        res_button = tk.Button(self.form, text="Get Resolution", command=self.show_resolution)
-        res_button.pack(pady=10)
-
-        # Create a button based on XML data
-        button = tk.Button(self.form, text=button_text, command=self.on_button_click)
-        button.pack(pady=10)    
-
+xml_ui = os.path.join(r'.','assets','forms','main_ui.xml' )
+class ClientData:
+    """Class to hold client connection data"""
+    def __init__(self, nickname="", host="", port=5000, password="", notes="", last_connected=None):
+        self.nickname = nickname
+        self.host = host
+        self.port = port
+        self.password = password
+        self.notes = notes
+        self.last_connected = last_connected  # datetime or None
         
+    def to_dict(self):
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "nickname": self.nickname,
+            "host": self.host,
+            "port": self.port,
+            "password": self.password,
+            "notes": self.notes,
+            "last_connected": self.last_connected.isoformat() if self.last_connected else None
+        }
+    
+    @classmethod
+    def from_dict(cls, data):
+        """Create ClientData object from dictionary"""
+        client = cls(
+            nickname=data.get("nickname", ""),
+            host=data.get("host", ""),
+            port=data.get("port", 5000),
+            password=data.get("password", ""),
+            notes=data.get("notes", "")
+        )
+        
+        # Parse last_connected if it exists
+        last_conn = data.get("last_connected")
+        if last_conn:
+            try:
+                client.last_connected = datetime.datetime.fromisoformat(last_conn)
+            except (ValueError, TypeError):
+                client.last_connected = None
+                
+        return client
+    
+    def display_name(self):
+        """Get display name for list"""
+        if self.nickname:
+            return f"{self.nickname} ({self.host}:{self.port})"
+        return f"{self.host}:{self.port}"
 
-    def on_button_click(self):
-        appClient = cc.RemoteClient()
-        appClient.save_to_xml()
-        appClient.run()
 
+class RemoteControlManager:
+    def __init__(self):
+        """Initialize the Remote Control Manager application"""
+        self.config_file = "clients_data.config"
+        self.clients = {}  # Dictionary of ClientData objects
+        self.current_edit_id = None  # ID of client being edited
+        self.editing_new = False  # Whether we're editing a new client
+        
+        # Create the root Tkinter window
+        self.root = tk.Tk()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        
+        # Create UI from XML definition
+        self.setup_gui()
+        
+        # Load saved clients
+        self.load_clients()
+        
+        # Set up the UI with initial state
+        self.setup_listbox()
+        self.update_client_count()
+        self.set_details_state(tk.DISABLED)
+    
+    def setup_gui(self):
+        """Set up the GUI from XML definition"""
+        try:
+            # Create UI parser and parse the XML file
+            parser = TkUIParser(self)
+            parser.parse_file(xml_ui)
+            
+            # Configure the listbox and scrollbar
+            self.clients_listbox.config(yscrollcommand=self.list_scrollbar.set)
+            self.list_scrollbar.config(command=self.clients_listbox.yview)
+            
+            # Bind events
+            self.clients_listbox.bind("<<ListboxSelect>>", self.on_client_select)
+            self.search_entry.bind("<Return>", lambda e: self.search_clients())
+            
+            # Set status
+            self.status_var.set("Ready")
+            
+        except Exception as e:
+            print(f"Error setting up GUI: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Failed to load UI: {str(e)}")
+    
+    def load_clients(self):
+        """Load client data from config file"""
+        self.clients = {}
+        
+        if not os.path.exists(self.config_file):
+            print(f"Config file not found, will create a new one when clients are saved")
+            return
+        
+        try:
+            with open(self.config_file, 'r') as f:
+                data = json.load(f)
+                
+            for client_id, client_data in data.items():
+                self.clients[client_id] = ClientData.from_dict(client_data)
+                
+            print(f"Loaded {len(self.clients)} clients from config")
+            
+        except Exception as e:
+            print(f"Error loading clients: {e}")
+            messagebox.showerror("Error", f"Failed to load client data: {str(e)}")
+    
+    def save_clients(self):
+        """Save all clients to config file"""
+        try:
+            data = {client_id: client.to_dict() for client_id, client in self.clients.items()}
+            
+            with open(self.config_file, 'w') as f:
+                json.dump(data, f, indent=4)
+                
+            print(f"Saved {len(self.clients)} clients to config")
+            self.status_var.set(f"Saved {len(self.clients)} clients to config")
+            
+        except Exception as e:
+            print(f"Error saving clients: {e}")
+            messagebox.showerror("Error", f"Failed to save client data: {str(e)}")
+    
+    def setup_listbox(self):
+        """Set up the clients listbox with all clients"""
 
-
-    def show_resolution(self):
-        width = self.form.winfo_screenwidth()
-        height = self.form.winfo_screenheight()
-        messagebox.showinfo("Screen Resolution", f"Current Resolution: {width}x{height}")
-
-    def load_ui_from_xml(self, xml_file):
-        #xml_file = 'J://Remote Control Software//Master//dev_rairu//RAIRU//assets//forms//form_Main.xml'
-        print(xml_file)
-        if not os.path.exists(xml_file):
-            print(f"File not found: {xml_file}")
-            return 0,0,0,0
+        #self.clients_listbox.delete(0, tk.END)
+        
+        # Sort clients by nickname/host
+        sorted_clients = sorted(
+            self.clients.items(), 
+            key=lambda x: x[1].display_name().lower()
+        )
+        
+        for client_id, client in sorted_clients:
+            self.clients_listbox.insert(tk.END, client.display_name())
+    
+    def update_client_count(self):
+        """Update the client count label"""
+        count = len(self.clients)
+        self.client_count_label.config(text=f"Clients: {count}")
+    
+    def on_client_select(self, event=None):
+        """Handle client selection from the listbox"""
+        selection = self.clients_listbox.curselection()
+        if not selection:
+            return
+        
+        # Get the client ID from the sorted list position
+        sorted_clients = sorted(
+            self.clients.items(), 
+            key=lambda x: x[1].display_name().lower()
+        )
+        
+        if selection[0] < len(sorted_clients):
+            client_id, client = sorted_clients[selection[0]]
+            self.selected_client_var.set(client_id)
+            self.display_client_details(client)
+    
+    def display_client_details(self, client):
+        """Display the selected client's details in the form"""
+        # Set form fields
+        self.nickname_entry.delete(0, tk.END)
+        self.nickname_entry.insert(0, client.nickname)
+        
+        self.host_entry.delete(0, tk.END)
+        self.host_entry.insert(0, client.host)
+        
+        self.port_entry.delete(0, tk.END)
+        self.port_entry.insert(0, str(client.port))
+        
+        self.password_entry.delete(0, tk.END)
+        self.password_entry.insert(0, client.password)
+        
+        self.notes_text.config(state=tk.NORMAL)
+        self.notes_text.delete(1.0, tk.END)
+        self.notes_text.insert(tk.END, client.notes)
+        self.notes_text.config(state=tk.DISABLED)
+        
+        # Set last connected label
+        if client.last_connected:
+            formatted_date = client.last_connected.strftime("%Y-%m-%d %H:%M:%S")
+            self.last_conn_label.config(text=formatted_date)
         else:
-            print(f"File found: {xml_file}")
-            # Proceed to parse the XML
-            tree = ET.parse(xml_file)
-        root = tree.getroot()
-
-        return root
-
+            self.last_conn_label.config(text="Never")
+    
+    def set_details_state(self, state):
+        """Enable or disable detail form fields"""
+        self.nickname_entry.config(state=state)
+        self.host_entry.config(state=state)
+        self.port_entry.config(state=state)
+        self.password_entry.config(state=state)
+        self.notes_text.config(state=state)
+        self.save_btn.config(state=state)
+        self.cancel_btn.config(state=state)
+        self.show_pass_check.config(state=state)
+    
+    def toggle_password_visibility(self):
+        """Toggle password visibility"""
+        current = self.password_entry.cget("show")
+        self.password_entry.config(show="" if current else "•")
+    
+    def search_clients(self):
+        """Search clients by name or host"""
+        search_text = self.search_var.get().lower()
+        
+        if not search_text:
+            # If search is empty, show all clients
+            self.setup_listbox()
+            return
+        
+        # Clear the listbox
+        self.clients_listbox.delete(0, tk.END)
+        
+        # Filter and sort clients
+        filtered_clients = [
+            (client_id, client) for client_id, client in self.clients.items()
+            if search_text in client.display_name().lower()
+        ]
+        
+        sorted_clients = sorted(
+            filtered_clients, 
+            key=lambda x: x[1].display_name().lower()
+        )
+        
+        # Add matching clients to listbox
+        for client_id, client in sorted_clients:
+            self.clients_listbox.insert(tk.END, client.display_name())
+        
+        # Update status
+        self.status_var.set(f"Found {len(sorted_clients)} matching clients")
+    
+    def new_client(self):
+        """Create a new client"""
+        # Enable the form
+        self.set_details_state(tk.NORMAL)
+        
+        # Clear form fields
+        self.nickname_entry.delete(0, tk.END)
+        self.host_entry.delete(0, tk.END)
+        self.port_entry.delete(0, tk.END)
+        self.port_entry.insert(0, "5000")
+        self.password_entry.delete(0, tk.END)
+        self.password_entry.config(show="•")
+        self.notes_text.delete(1.0, tk.END)
+        self.last_conn_label.config(text="Never")
+        
+        # Set flags
+        self.editing_new = True
+        self.current_edit_id = None
+        
+        # Focus nickname field
+        self.nickname_entry.focus_set()
+    
+    def edit_client(self):
+        """Edit the selected client"""
+        selection = self.clients_listbox.curselection()
+        if not selection:
+            messagebox.showinfo("Information", "Please select a client to edit")
+            return
+        
+        # Get the client ID from the sorted list position
+        sorted_clients = sorted(
+            self.clients.items(), 
+            key=lambda x: x[1].display_name().lower()
+        )
+        
+        if selection[0] < len(sorted_clients):
+            client_id, client = sorted_clients[selection[0]]
+            self.current_edit_id = client_id
+            self.editing_new = False
+            
+            # Display the client details and enable form
+            self.display_client_details(client)
+            self.set_details_state(tk.NORMAL)
+            self.notes_text.config(state=tk.NORMAL)
+            
+            # Focus nickname field
+            self.nickname_entry.focus_set()
+    
+    def delete_client(self):
+        """Delete the selected client"""
+        selection = self.clients_listbox.curselection()
+        if not selection:
+            messagebox.showinfo("Information", "Please select a client to delete")
+            return
+        
+        # Get the client ID from the sorted list position
+        sorted_clients = sorted(
+            self.clients.items(), 
+            key=lambda x: x[1].display_name().lower()
+        )
+        
+        if selection[0] < len(sorted_clients):
+            client_id, client = sorted_clients[selection[0]]
+            
+            # Confirm deletion
+            display_name = client.display_name()
+            confirm = messagebox.askyesno(
+                "Confirm Deletion", 
+                f"Are you sure you want to delete client '{display_name}'?"
+            )
+            
+            if confirm:
+                # Delete the client
+                del self.clients[client_id]
+                
+                # Update UI
+                self.setup_listbox()
+                self.update_client_count()
+                self.save_clients()
+                
+                # Clear and disable form
+                self.nickname_entry.delete(0, tk.END)
+                self.host_entry.delete(0, tk.END)
+                self.port_entry.delete(0, tk.END)
+                self.password_entry.delete(0, tk.END)
+                self.notes_text.config(state=tk.NORMAL)
+                self.notes_text.delete(1.0, tk.END)
+                self.notes_text.config(state=tk.DISABLED)
+                self.last_conn_label.config(text="")
+                
+                self.status_var.set(f"Deleted client '{display_name}'")
+    
+    def save_client(self):
+        """Save the current client data from the form"""
+        # Validate input
+        host = self.host_entry.get().strip()
+        if not host:
+            messagebox.showerror("Error", "Host cannot be empty")
+            return
+        
+        try:
+            port = int(self.port_entry.get())
+            if port < 1 or port > 65535:
+                raise ValueError("Port must be between 1 and 65535")
+        except ValueError as e:
+            messagebox.showerror("Error", f"Invalid port: {str(e)}")
+            return
+        
+        # Create client data object
+        nickname = self.nickname_entry.get().strip()
+        password = self.password_entry.get()
+        notes = self.notes_text.get(1.0, tk.END).strip()
+        
+        client = ClientData(
+            nickname=nickname,
+            host=host,
+            port=port,
+            password=password,
+            notes=notes
+        )
+        
+        # If editing existing client, preserve the last_connected timestamp
+        if not self.editing_new and self.current_edit_id in self.clients:
+            client.last_connected = self.clients[self.current_edit_id].last_connected
+        
+        # Generate a new ID for new clients
+        if self.editing_new:
+            # Use timestamp + host:port as a unique ID
+            client_id = f"{datetime.datetime.now().timestamp()}-{host}-{port}"
+        else:
+            client_id = self.current_edit_id
+        
+        # Save the client
+        self.clients[client_id] = client
+        
+        # Update UI
+        self.setup_listbox()
+        self.update_client_count()
+        self.save_clients()
+        
+        # Disable form
+        self.set_details_state(tk.DISABLED)
+        self.notes_text.config(state=tk.DISABLED)
+        
+        # Reset edit flags
+        self.editing_new = False
+        self.current_edit_id = None
+        
+        # Update status
+        display_name = client.display_name()
+        self.status_var.set(f"Saved client '{display_name}'")
+    
+    def cancel_edit(self):
+        """Cancel the current client edit"""
+        # Disable form
+        self.set_details_state(tk.DISABLED)
+        self.notes_text.config(state=tk.DISABLED)
+        
+        # If we were editing an existing client, restore its details
+        if not self.editing_new and self.current_edit_id in self.clients:
+            self.display_client_details(self.clients[self.current_edit_id])
+        else:
+            # Clear form
+            self.nickname_entry.delete(0, tk.END)
+            self.host_entry.delete(0, tk.END)
+            self.port_entry.delete(0, tk.END)
+            self.password_entry.delete(0, tk.END)
+            self.notes_text.delete(1.0, tk.END)
+            self.last_conn_label.config(text="")
+        
+        # Reset edit flags
+        self.editing_new = False
+        self.current_edit_id = None
+        
+        # Update status
+        self.status_var.set("Edit cancelled")
+    
+    def connect_client(self):
+        """Connect to the selected client"""
+        selection = self.clients_listbox.curselection()
+        if not selection:
+            messagebox.showinfo("Information", "Please select a client to connect to")
+            return
+        
+        # Get the client ID from the sorted list position
+        sorted_clients = sorted(
+            self.clients.items(), 
+            key=lambda x: x[1].display_name().lower()
+        )
+        
+        if selection[0] < len(sorted_clients):
+            client_id, client = sorted_clients[selection[0]]
+            
+            # Update status
+            display_name = client.display_name()
+            self.status_var.set(f"Connecting to '{display_name}'...")
+            self.root.update()
+            
+            try:
+                # Launch the client application with arguments
+                cmd = [
+                    "python", "client.py",
+                    "--host", client.host,
+                    "--port", str(client.port),
+                    "--password", client.password,
+                    "--client-id", client_id
+                ]
+                
+                # Launch the client in a separate process
+                subprocess.Popen(cmd)
+                
+                # Set last connected timestamp
+                client.last_connected = datetime.datetime.now()
+                self.last_conn_label.config(text=client.last_connected.strftime("%Y-%m-%d %H:%M:%S"))
+                
+                # Save clients to update last_connected
+                self.save_clients()
+                
+                # Update status
+                self.status_var.set(f"Connected to '{display_name}'")
+                
+            except Exception as e:
+                print(f"Error launching client: {e}")
+                messagebox.showerror("Error", f"Failed to launch client: {str(e)}")
+                self.status_var.set(f"Error connecting to '{display_name}'")
+    
+    def update_client_connection_success(self, client_id):
+        """Update the last connected time for a client after successful connection"""
+        if client_id in self.clients:
+            # Update the timestamp
+            self.clients[client_id].last_connected = datetime.datetime.now()
+            
+            # Update UI if this client is selected
+            if self.selected_client_var.get() == client_id:
+                formatted_date = self.clients[client_id].last_connected.strftime("%Y-%m-%d %H:%M:%S")
+                self.last_conn_label.config(text=formatted_date)
+            
+            # Save clients
+            self.save_clients()
+    
+    def on_close(self):
+        """Handle window close event"""
+        # Save any unsaved changes
+        self.save_clients()
+        self.root.destroy()
+    
+    def run(self):
+        """Run the manager application"""
+        self.root.mainloop()
 
 if __name__ == "__main__":
-
-    xml_file = os.path.join(r'.','assets','forms','form_Main.xml' )
-    #print(xml_file)
-    #xml_file = os.path.abspath(xml_file)
-    #print(os.path.isdir(xml_file))
-
-    app = MainUI(xml_file)
-    server = sc.RemoteServer()
-
-    if app == None : 
-        exit
-    app.form.mainloop()
+    manager = RemoteControlManager()
+    manager.run()
