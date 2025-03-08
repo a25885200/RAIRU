@@ -13,8 +13,9 @@ from io import BytesIO
 from cryptography.fernet import Fernet
 from datetime import datetime
 import time
-import Globals as gb
 
+import argparse
+import Globals as gb
 # Import the UI parser
 from ui_parser import TkUIParser
 xml_ui = os.path.join(os.path.dirname(__file__),'assets','forms','client_ui.xml' )
@@ -29,9 +30,9 @@ class RemoteControlClient:
         self.socket = None
         self.connected = False
         self.cipher = None
-        
+
         # Screen update settings
-        self.screen_running = False
+        self.screen_running = False     
         self.screen_thread = None
         self.update_interval = 0.1  # seconds
         
@@ -757,9 +758,11 @@ class RemoteControlClient:
         """Handle window close event"""
         if self.connected:
             if messagebox.askyesno("Confirm Exit", "You are still connected. Disconnect and exit?"):
+                gb.sub_public_current_client()
                 self.disconnect()
                 self.root.destroy()
         else:
+            gb.sub_public_current_client()
             self.root.destroy()
     
     def run(self):

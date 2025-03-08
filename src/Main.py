@@ -469,6 +469,14 @@ class RemoteControlManager:
                 # Launch the client in a separate process
                 subprocess.Popen(cmd)
                 
+                """Check number of opend client form"""
+                if gb.get_public_current_client() >= gb.get_max_client():
+                    messagebox.showinfo("Information", "You can't open more than 5 clients")
+                    return
+                else:
+                    gb.add_public_current_client()
+                    print(gb.get_public_current_client())
+
                 # Set last connected timestamp
                 client.last_connected = datetime.datetime.now()
                 self.last_conn_label.config(text=client.last_connected.strftime("%Y-%m-%d %H:%M:%S"))
