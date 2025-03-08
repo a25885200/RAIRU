@@ -21,6 +21,21 @@ RAIRU is a remote control software.
 
 ## Usage
 
+'grp'
+'pwd'
+'_frozen_importlib_external'
+'collections.abc'
+'posix'
+'resource'
+'win32con'
+'win32gui'
+'cryptography',
+'numpy',
+'cv2',
+'PIL',
+'pyautogui',
+'psutil',
+
 To start using RAIRU, run the following command:
 
 ```sh

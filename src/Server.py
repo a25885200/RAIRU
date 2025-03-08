@@ -18,7 +18,7 @@ from datetime import datetime
 
 # Import the UI parser
 from ui_parser import TkUIParser
-xml_ui = os.path.join(r'.','assets','forms','server_ui.xml' )
+xml_ui = os.path.join(r'.','src','assets','forms','server_ui.xml' )
 
 class RemoteControlServer:
     def __init__(self):

@@ -6,12 +6,10 @@ import subprocess
 import datetime
 import sys
 import platform
-import signal
 import psutil  
 from ui_parser import TkUIParser
-import Server 
-import Client 
-xml_ui = os.path.join(r'.','assets','forms','main_ui.xml' )
+
+xml_ui = os.path.join(r'.','src','assets','forms','main_ui.xml' )
 
 class ClientData:
     """Class to hold client connection data"""

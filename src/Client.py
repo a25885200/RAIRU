@@ -16,7 +16,8 @@ import time
 
 # Import the UI parser
 from ui_parser import TkUIParser
-xml_ui = os.path.join(r'.','assets','forms','client_ui.xml' )
+xml_ui = os.path.join(r'.','src','assets','forms','client_ui.xml' )
+
 class RemoteControlClient:
     def __init__(self, host='localhost', port=5000, password='secure_password', client_id=None):
         """Initialize the Remote Control Client application"""

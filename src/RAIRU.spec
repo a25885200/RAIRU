@@ -1,12 +1,17 @@
+# RAIRU.spec
+
 # -*- mode: python ; coding: utf-8 -*-
 
 block_cipher = None
 
 a = Analysis(
-    ['src/Main.py'],
-    pathex=['j:\\Remote Control Software\\Master\\dev_rairu\\RAIRU'],
+    ['Main.py'],
+    pathex=['J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\src'],
     binaries=[],
-    datas=[],
+    datas=[
+        ('assets/forms/*', 'assets/forms'),  # Include forms directory
+        ('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\*', '.'),  # Include all files and folders
+    ],
     hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],
@@ -14,6 +19,7 @@ a = Analysis(
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
+    noarchive=False,
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -27,7 +33,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,  # Set to False to hide the console window
 )
 
 coll = COLLECT(
@@ -39,5 +45,5 @@ coll = COLLECT(
     upx=True,
     upx_exclude=[],
     name='RAIRU',
-    outdir='j:\\Remote Control Software\\Master\\dev_rairu\\dist'
+    outdir='j:\\Remote Control Software\\Master\\dist'
 )
