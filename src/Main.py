@@ -9,7 +9,7 @@ import platform
 import psutil  
 from ui_parser import TkUIParser
 
-xml_ui = os.path.join(r'.','src','assets','forms','main_ui.xml' )
+xml_ui = os.path.join(os.path.dirname(__file__),'assets','forms','main_ui.xml' )
 
 class ClientData:
     """Class to hold client connection data"""
@@ -523,9 +523,6 @@ class RemoteControlManager:
             return False
     
     def start_server(self):
-
-
-
         """Start the server application"""
         try:
             # Launch the server in a new process
