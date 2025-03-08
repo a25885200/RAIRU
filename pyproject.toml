@@ -2,6 +2,7 @@
 name = "RAIRU"
 version = "0.1.0"
 description = "Remote control"
+anthor = "Tim Leung"
 
 [build-system]
 build-backend = "flit_core.buildapi"
