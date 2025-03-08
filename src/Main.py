@@ -8,6 +8,7 @@ import sys
 import platform
 import psutil  
 from ui_parser import TkUIParser
+import Globals as gb
 
 xml_ui = os.path.join(os.path.dirname(__file__),'assets','forms','main_ui.xml' )
 
@@ -63,7 +64,7 @@ class ClientData:
 class RemoteControlManager:
     def __init__(self):
         """Initialize the Remote Control Manager application"""
-        self.config_file = "clients_data.config"
+        self.config_file = gb.get_client_data_config_path()
         self.clients = {}  # Dictionary of ClientData objects
         self.current_edit_id = None  # ID of client being edited
         self.editing_new = False  # Whether we're editing a new client

@@ -13,6 +13,7 @@ from io import BytesIO
 from cryptography.fernet import Fernet
 from datetime import datetime
 import time
+import Globals as gb
 
 # Import the UI parser
 from ui_parser import TkUIParser
@@ -206,11 +207,11 @@ class RemoteControlClient:
             
         try:
             # Check if clients_data.config exists
-            if not os.path.exists("clients_data.config"):
+            if not os.path.exists(gb.get_client_data_config_path()):
                 return
                 
             # Load client data
-            with open("clients_data.config", 'r') as f:
+            with open(gb.get_client_data_config_path(), 'r') as f:
                 data = json.load(f)
                 
             # Update last_connected for this client
@@ -218,7 +219,7 @@ class RemoteControlClient:
                 data[self.client_id]["last_connected"] = datetime.now().isoformat()
                 
                 # Save updated data
-                with open("clients_data.config", 'w') as f:
+                with open(gb.get_client_data_config_path(), 'w') as f:
                     json.dump(data, f, indent=4)
                     
                 print(f"Updated connection status for client {self.client_id}")
