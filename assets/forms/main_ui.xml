@@ -7,6 +7,7 @@
         <var id="status_var" type="string" value="Ready" />
         <var id="search_var" type="string" value="" />
         <var id="selected_client_var" type="string" value="" />
+        <var id="server_status_var" type="string" value="Server: Not Running" />
         
         <!-- Main Frame -->
         <frame id="main_frame" padding="10" layout="pack" fill="both" expand="true">
@@ -97,7 +98,15 @@
             
             <!-- Status Bar -->
             <frame id="status_bar" layout="pack" fill="x" pady="10,0">
-                <label text="Client Manager v1.0" layout="pack" side="left" />
+                <frame id="version_frame" layout="pack" side="left" fill="y">
+                    <label text="Client Manager v1.0" layout="pack" side="left" />
+                </frame>
+                
+                <frame id="server_frame" layout="pack" side="left" fill="y" padx="20,0">
+                    <label textvariable="server_status_var" layout="pack" side="left" padx="0,10" />
+                    <button id="server_btn" text="Start Server" command="toggle_server" layout="pack" side="left" />
+                </frame>
+                
                 <label text="Clients: 0" id="client_count_label" layout="pack" side="right" />
             </frame>
             

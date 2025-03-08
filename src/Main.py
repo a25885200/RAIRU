@@ -4,9 +4,15 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
 import datetime
+import sys
+import platform
+import signal
+import psutil  # You might need to install this: pip install psutil
 from ui_parser import TkUIParser
-
+#import Server as serv
+#import Client as clie
 xml_ui = os.path.join(r'.','assets','forms','main_ui.xml' )
+
 class ClientData:
     """Class to hold client connection data"""
     def __init__(self, nickname="", host="", port=5000, password="", notes="", last_connected=None):
@@ -64,6 +70,9 @@ class RemoteControlManager:
         self.current_edit_id = None  # ID of client being edited
         self.editing_new = False  # Whether we're editing a new client
         
+        # Server process tracking
+        self.server_process = None
+        
         # Create the root Tkinter window
         self.root = tk.Tk()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -78,6 +87,9 @@ class RemoteControlManager:
         self.setup_listbox()
         self.update_client_count()
         self.set_details_state(tk.DISABLED)
+        
+        # Update server status periodically
+        self.check_server_status()
     
     def setup_gui(self):
         """Set up the GUI from XML definition"""
@@ -96,6 +108,7 @@ class RemoteControlManager:
             
             # Set status
             self.status_var.set("Ready")
+            self.server_status_var.set("Server: Not Running")
             
         except Exception as e:
             print(f"Error setting up GUI: {e}")
@@ -141,8 +154,7 @@ class RemoteControlManager:
     
     def setup_listbox(self):
         """Set up the clients listbox with all clients"""
-
-        #self.clients_listbox.delete(0, tk.END)
+        self.clients_listbox.delete(0, tk.END)
         
         # Sort clients by nickname/host
         sorted_clients = sorted(
@@ -449,7 +461,7 @@ class RemoteControlManager:
             try:
                 # Launch the client application with arguments
                 cmd = [
-                    "python", "client.py",
+                    "env_RAIRA", "Client.py",
                     "--host", client.host,
                     "--port", str(client.port),
                     "--password", client.password,
@@ -488,15 +500,155 @@ class RemoteControlManager:
             # Save clients
             self.save_clients()
     
+    def toggle_server(self):
+        """Start or stop the server"""
+        if self.is_server_running():
+            # If server is running, try to focus its window
+            self.focus_server_window()
+        else:
+            # If server is not running, start it
+            self.start_server()
+    
+    def is_server_running(self):
+        """Check if the server process is still running"""
+        if self.server_process is None:
+            return False
+            
+        try:
+            # Check if process is still running
+            if isinstance(self.server_process, int):
+                # Process ID case
+                return psutil.pid_exists(self.server_process)
+            else:
+                # Subprocess.Popen case
+                return self.server_process.poll() is None
+        except:
+            return False
+    
+    def start_server(self):
+
+
+
+        """Start the server application"""
+        try:
+            # Launch the server in a new process
+            self.status_var.set("Starting server...")
+            self.root.update()
+            
+            # Create command to run server
+            cmd = ["env_RAIRA", "Server.py"]
+            
+            # Start the process
+            server_process = subprocess.Popen(cmd)
+            self.server_process = server_process.pid  # Store the process ID
+            
+            # Update UI
+            self.server_status_var.set("Server: Running")
+            self.server_btn.config(text="Focus Server")
+            self.status_var.set("Server started successfully")
+            
+        except Exception as e:
+            print(f"Error starting server: {e}")
+            messagebox.showerror("Error", f"Failed to start server: {str(e)}")
+            self.status_var.set("Failed to start server")
+            self.server_process = None
+    
+    def focus_server_window(self):
+        """Try to focus the server window if it's running"""
+        # This is platform-specific and might not work in all environments
+        try:
+            if platform.system() == "Windows":
+                # On Windows, we can use the win32gui module to find and focus the window
+                try:
+                    import win32gui
+                    import win32con
+                    
+                    def callback(hwnd, extra):
+                        if win32gui.IsWindowVisible(hwnd):
+                            title = win32gui.GetWindowText(hwnd)
+                            if "Remote Control Server" in title:
+                                # Found the server window, bring it to front
+                                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                                win32gui.SetForegroundWindow(hwnd)
+                                return False  # Stop enumeration
+                        return True  # Continue enumeration
+                    
+                    win32gui.EnumWindows(callback, None)
+                    
+                except ImportError:
+                    # win32gui not available, show message to user
+                    messagebox.showinfo("Server Running", "The server is already running.")
+
+            else:
+                # On other platforms, just show a message
+                messagebox.showinfo("Server Running", "The server is already running.")
+                
+        except Exception as e:
+            print(f"Error focusing server window: {e}")
+            messagebox.showinfo("Server Running", "The server is already running but couldn't be focused.")
+    
+    def check_server_status(self):
+        """Periodically check if the server is still running and update UI"""
+        if self.is_server_running():
+            self.server_status_var.set("Server: Running")
+            self.server_btn.config(text="Focus Server")
+        else:
+            self.server_status_var.set("Server: Not Running")
+            self.server_btn.config(text="Start Server")
+            self.server_process = None
+            
+        # Schedule next check after 2 seconds
+        self.root.after(2000, self.check_server_status)
+    
+    def stop_server(self):
+        """Stop the server if it's running"""
+        if not self.is_server_running():
+            return
+            
+        try:
+            # Get the process
+            if isinstance(self.server_process, int):
+                # We have a process ID
+                process = psutil.Process(self.server_process)
+                
+                # Try to terminate gracefully first
+                process.terminate()
+                
+                # Wait a bit and kill if still running
+                try:
+                    process.wait(timeout=3)
+                except psutil.TimeoutExpired:
+                    process.kill()
+            else:
+                # We have a Popen object
+                self.server_process.terminate()
+                try:
+                    self.server_process.wait(timeout=3)
+                except:
+                    self.server_process.kill()
+                    
+            # Update UI
+            self.server_status_var.set("Server: Not Running")
+            self.server_btn.config(text="Start Server")
+            self.server_process = None
+            
+        except Exception as e:
+            print(f"Error stopping server: {e}")
+    
     def on_close(self):
         """Handle window close event"""
         # Save any unsaved changes
         self.save_clients()
+        
+        # Stop the server if it's running
+        self.stop_server()
+        
         self.root.destroy()
     
     def run(self):
         """Run the manager application"""
         self.root.mainloop()
+
 
 if __name__ == "__main__":
     manager = RemoteControlManager()
