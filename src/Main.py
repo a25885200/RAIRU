@@ -7,10 +7,10 @@ import datetime
 import sys
 import platform
 import signal
-import psutil  # You might need to install this: pip install psutil
+import psutil  
 from ui_parser import TkUIParser
-#import Server as serv
-#import Client as clie
+import Server 
+import Client 
 xml_ui = os.path.join(r'.','assets','forms','main_ui.xml' )
 
 class ClientData:
@@ -461,13 +461,12 @@ class RemoteControlManager:
             try:
                 # Launch the client application with arguments
                 cmd = [
-                    "env_RAIRA", "Client.py",
+                    sys.executable, os.path.join(os.path.dirname(__file__), "Client.py"),
                     "--host", client.host,
                     "--port", str(client.port),
                     "--password", client.password,
                     "--client-id", client_id
                 ]
-                
                 # Launch the client in a separate process
                 subprocess.Popen(cmd)
                 
@@ -536,7 +535,7 @@ class RemoteControlManager:
             self.root.update()
             
             # Create command to run server
-            cmd = ["env_RAIRA", "Server.py"]
+            cmd = [sys.executable, os.path.join(os.path.dirname(__file__), "Server.py")]
             
             # Start the process
             server_process = subprocess.Popen(cmd)
