@@ -1,25 +1,10 @@
-import socket
-import threading
-import base64
-import json
+
+
+from util import *
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
-import PIL.Image, PIL.ImageTk
-import cv2
 import numpy as np
-import os
-import argparse
-from io import BytesIO
-from cryptography.fernet import Fernet
-from datetime import datetime
-import time
 import LoggingHD as lg
-
-
-import argparse
 import Globals as gb
-# Import the UI parser
-from ui_parser import TkUIParser
 
 class RemoteControlClient:
     def __init__(self, host='localhost', port=5000, password='secure_password', client_id=None, root=None):

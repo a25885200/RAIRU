@@ -1,7 +1,5 @@
+from util import *
 import tkinter as tk
-from tkinter import ttk, scrolledtext
-import os
-import traceback
 import xml.etree.ElementTree as et
 
 class TkUIParser:

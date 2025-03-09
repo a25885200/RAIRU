@@ -1,20 +1,9 @@
-import socket
-import threading
-import Main
-import pyautogui
+
+from util import *
+
 import numpy as np
-import cv2
-import base64
-import json
-import os
 import tkinter as tk
-from tkinter import ttk, messagebox
-import PIL.Image, PIL.ImageTk
-from io import BytesIO
-from cryptography.fernet import Fernet
 from time import sleep
-import platform
-from datetime import datetime
 import LoggingHD as lg
 import Globals as gb
 
