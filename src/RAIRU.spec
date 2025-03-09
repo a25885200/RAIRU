@@ -5,7 +5,7 @@
 block_cipher = None
 
 a = Analysis(
-    ['Main.py'],
+    ['Run.py'],
     pathex=['J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\src'],
     binaries=[],
     datas=[

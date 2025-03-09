@@ -15,13 +15,16 @@ from cryptography.fernet import Fernet
 from time import sleep
 import platform
 from datetime import datetime
+import LoggingHD as lg
+import Globals as gb
 
 # Import the UI parser
 from ui_parser import TkUIParser
-xml_ui = os.path.join(os.path.dirname(__file__),'assets','forms','server_ui.xml' )
+xml_ui = gb.get_server_ui_xml_path()
 
 class RemoteControlServer:
     def __init__(self):
+        lg.logger.info("initiating Server")
         """Initialize the Remote Control Server application"""
         self.host = '0.0.0.0'  # Listen on all available interfaces
         self.port = 5000
@@ -47,6 +50,7 @@ class RemoteControlServer:
         
         # Create UI from XML definition
         self.setup_gui()
+
     
     def setup_gui(self):
         """Set up the GUI from XML definition"""
@@ -606,7 +610,7 @@ class RemoteControlServer:
         """Run the server application"""
         self.root.mainloop()
 
-
-if __name__ == "__main__":
-    server = RemoteControlServer()
-    server.run()
+lg.logger.debug("Parse Server arguments")
+server = RemoteControlServer()
+lg.logger.debug("calling RemoteControlServer.run()")
+server.run()
