@@ -10,7 +10,12 @@ a = Analysis(
     binaries=[],
     datas=[
         ('assets/forms/*', 'assets/forms'),  # Include forms directory
-        ('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\*', '.'),  # Include all files and folders
+        ('assets/configs/*', 'assets/configs'),  # Include configs directory
+        ('assets/img/*', 'assets/img'),  # Include img directory
+        #('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\LICENSE.txt'), #Include LICENSE
+        #('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\pyproject.toml'), #Include pyproject
+        #('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\README.md'), #Include README
+        #('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\*', '.'),  # Include all files and folders
     ],
     hiddenimports=[],
     hookspath=[],

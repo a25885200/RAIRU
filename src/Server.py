@@ -1,6 +1,6 @@
 import socket
 import threading
-#import Main
+import Main
 import pyautogui
 import numpy as np
 import cv2
@@ -20,10 +20,9 @@ import Globals as gb
 
 # Import the UI parser
 from ui_parser import TkUIParser
-xml_ui = gb.get_server_ui_xml_path()
 
 class RemoteControlServer:
-    def __init__(self):
+    def __init__(self, tk):
         lg.logger.info("initiating Server")
         """Initialize the Remote Control Server application"""
         self.host = '0.0.0.0'  # Listen on all available interfaces
@@ -45,6 +44,7 @@ class RemoteControlServer:
         self.update_rate = 0.5  # seconds between screen updates
         
         # Create the root Tkinter window
+        self.tk = tk
         self.root = tk.Tk()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         
@@ -56,6 +56,8 @@ class RemoteControlServer:
         """Set up the GUI from XML definition"""
         try:
             # Create UI parser and parse the XML file
+            xml_ui = gb.get_server_ui_xml_path()
+            lg.logger.debug(f"xml_ui: {xml_ui}") 
             parser = TkUIParser(self)
             parser.parse_file(xml_ui)
             
@@ -211,7 +213,7 @@ class RemoteControlServer:
         self.status_var.set("Stopped")
         self.status_indicator.config(foreground="red")
         self.start_btn.config(text="Start Server")
-        self.client_listbox.delete(0, tk.END)
+        self.client_listbox.delete(0, self.tk.END)
         
         # Log
         self.log("Server stopped")
@@ -497,11 +499,11 @@ class RemoteControlServer:
     
     def _update_client_list(self):
         """Internal method to update client listbox (runs on main thread)"""
-        self.client_listbox.delete(0, tk.END)
+        self.client_listbox.delete(0, self.tk.END)
         for client in self.clients:
             if client['authenticated']:
                 addr = client['address']
-                self.client_listbox.insert(tk.END, f"{addr[0]}:{addr[1]}")
+                self.client_listbox.insert(self.tk.END, f"{addr[0]}:{addr[1]}")
     
     def disconnect_client(self):
         """Disconnect the selected client"""
@@ -575,7 +577,7 @@ class RemoteControlServer:
             self.preview_canvas.create_image(
                 self.preview_canvas.winfo_width() // 2,
                 self.preview_canvas.winfo_height() // 2,
-                anchor=tk.CENTER,
+                anchor=self.tk.CENTER,
                 image=photo
             )
             self.preview_canvas.image = photo  # Keep a reference
@@ -592,10 +594,10 @@ class RemoteControlServer:
         timestamp = datetime.now().strftime("%H:%M:%S")
         log_message = f"[{timestamp}] {message}"
         
-        self.log_text.config(state=tk.NORMAL)
-        self.log_text.insert(tk.END, log_message + "\n")
-        self.log_text.see(tk.END)
-        self.log_text.config(state=tk.DISABLED)
+        self.log_text.config(state=self.tk.NORMAL)
+        self.log_text.insert(self.tk.END, log_message + "\n")
+        self.log_text.see(self.tk.END)
+        self.log_text.config(state=self.tk.DISABLED)
     
     def on_close(self):
         """Handle window close event"""
@@ -604,13 +606,16 @@ class RemoteControlServer:
                 self.stop_server()
                 self.root.destroy()
         else:
-            self.root.destroy()
+            self.root.destroy()        
     
     def run(self):
         """Run the server application"""
         self.root.mainloop()
 
-lg.logger.debug("Parse Server arguments")
-server = RemoteControlServer()
-lg.logger.debug("calling RemoteControlServer.run()")
-server.run()
+
+
+if __name__ == "__main__":
+    lg.logger.debug("Parse Server arguments")
+    server = RemoteControlServer(tk)
+    lg.logger.debug("calling RemoteControlServer.run()")
+    server.run()

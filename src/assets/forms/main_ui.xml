@@ -99,7 +99,7 @@
             <!-- Status Bar -->
             <frame id="status_bar" layout="pack" fill="x" pady="10,0">
                 <frame id="version_frame" layout="pack" side="left" fill="y">
-                    <label text="Client Manager v1.0" layout="pack" side="left" />
+                    <label text="Client Manager v1.0" id="version_label" layout="pack" side="left" />
                 </frame>
                 
                 <frame id="server_frame" layout="pack" side="left" fill="y" padx="20,0">

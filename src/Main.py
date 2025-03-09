@@ -10,7 +10,7 @@ import psutil
 from ui_parser import TkUIParser
 import Globals as gb
 import LoggingHD as lg
-xml_ui = gb.get_main_ui_xml_path()
+import multiprocessing
 
 class ClientData:
     """Class to hold client connection data"""
@@ -64,14 +64,22 @@ class ClientData:
 class RemoteControlManager:
     def __init__(self):        
         lg.logger.debug("Initializing RemoteControlManager")
-        """Initialize the Remote Control Manager application"""
+        """Initialize the Remote Control Manager application""" 
+        multiprocessing.get_start_method("spawn")
+        multiprocessing.freeze_support()
+        multiprocessing.allow_connection_pickling()
+        self.result_piep = multiprocessing.Pipe 
+        self.result_queue = multiprocessing.Queue()
         self.config_file = gb.get_client_data_config_path()
         self.clients = {}  # Dictionary of ClientData objects
         self.current_edit_id = None  # ID of client being edited
         self.editing_new = False  # Whether we're editing a new client
+        self.client_process = None
+        self.server_process = None
         
         # Server process tracking
-        self.server_process = None
+        self.opened_server = None
+        self.opend_client = set()
         
         # Create the root Tkinter window
         self.root = tk.Tk()
@@ -82,7 +90,6 @@ class RemoteControlManager:
         
         # Load saved clients
         self.load_clients()
-        
         # Set up the UI with initial state
         self.setup_listbox()
         self.update_client_count()
@@ -95,6 +102,8 @@ class RemoteControlManager:
         """Set up the GUI from XML definition"""
         try:
             # Create UI parser and parse the XML file
+            xml_ui = gb.get_main_ui_xml_path()
+            lg.logger.debug(f"xml_ui: {xml_ui}")    
             parser = TkUIParser(self)
             parser.parse_file(xml_ui)
             
@@ -109,6 +118,10 @@ class RemoteControlManager:
             # Set status
             self.status_var.set("Ready")
             self.server_status_var.set("Server: Not Running")
+            
+            # version label
+            self.version_label.config(text=gb.get_application_name() + " : v" + gb.get_application_version())
+        
             
         except Exception as e:
             print(f"Error setting up GUI: {e}")
@@ -460,36 +473,19 @@ class RemoteControlManager:
             self.root.update()
             
             try:
-                
-                """Check number of opend client form"""
+                """Check number of opened client form"""
                 if gb.get_public_current_client() >= gb.get_max_client():
                     messagebox.showinfo("Information", "You can't open more than " + gb.get_max_client() + " clients")
                     return
                 
-                # Determine the correct path to Server.py
-                if getattr(sys, 'frozen', False):
-                    # If running as a bundled executable
-                    base_path = sys._MEIPASS
-                else:
-                    # If running as a script
-                    base_path = os.path.dirname(__file__)
-                
-                client_script = os.path.join(base_path, "Client.py")
-            
-                # Launch the client application with arguments
-                cmd = [
-                    sys.executable, client_script,
-                    "--host", client.host,
-                    "--port", str(client.port),
-                    "--password", client.password,
-                    "--client-id", client_id
-                ]
-                
+                new_client_form = multiprocessing.Process(target=open_client_form, args=(client,client_id))                
+                lg.logger.debug(f"{new_client_form.name} :({new_client_form.pid})")
+                new_client_form.start()
+                new_client_form.join(3)
 
-                # Launch the client in a separate process
-                subprocess.Popen(cmd)
+
                 gb.add_public_current_client()
-                print(gb.get_public_current_client())
+                lg.logger.debug(f"public_current_client: {gb.get_public_current_client()}")
 
                 # Set last connected timestamp
                 client.last_connected = datetime.datetime.now()
@@ -505,7 +501,8 @@ class RemoteControlManager:
                 print(f"Error launching client: {e}")
                 messagebox.showerror("Error", f"Failed to launch client: {str(e)}")
                 self.status_var.set(f"Error connecting to '{display_name}'")
-    
+
+
     def update_client_connection_success(self, client_id):
         """Update the last connected time for a client after successful connection"""
         if client_id in self.clients:
@@ -553,23 +550,13 @@ class RemoteControlManager:
             self.status_var.set("Starting server...")
             self.root.update()
 
-            # Determine the correct path to Server.py
-            if getattr(sys, 'frozen', False):
-                # If running as a bundled executable
-                base_path = sys._MEIPASS
-            else:
-                # If running as a script
-                base_path = os.path.dirname(__file__)
-            
-            server_script = os.path.join(base_path, "Server.py")
-            
-            # Create command to run server
-            cmd = [sys.executable, server_script]
-            
-            # Start the process
-            server_process = subprocess.Popen(cmd)
-            self.server_process = server_process.pid  # Store the process ID
-            
+            new_server_form = multiprocessing.Process(target=open_server_form)            
+            lg.logger.debug(f"{new_server_form.name} :({new_server_form.pid})")
+            new_server_form.start()
+            self.server_process = new_server_form.pid 
+            print(self.server_process)
+            new_server_form.join(3)
+
             # Update UI
             self.server_status_var.set("Server: Running")
             self.server_btn.config(text="Focus Server")
@@ -579,45 +566,33 @@ class RemoteControlManager:
             print(f"Error starting server: {e}")
             messagebox.showerror("Error", f"Failed to start server: {str(e)}")
             self.status_var.set("Failed to start server")
-            self.server_process = None
-    
+            self.opened_server = None
+
     def focus_server_window(self):
-        lg.logger.debug("button focus_server_window clicked")
         """Try to focus the server window if it's running"""
         # This is platform-specific and might not work in all environments
         try:
             if platform.system() == "Windows":
-                # On Windows, we can use the tasklist and taskkill commands to bring the window to front
+                # On Windows, we can use the win32gui module to find and focus the window
                 try:
-                    cmd = 'tasklist /fi "imagename eq python.exe" /v /fo csv'
-                    output = subprocess.check_output(cmd, shell=True).decode("utf-8")
-                    for line in output.splitlines():
-                        if "Server.py" in line:
-                            pid = line.split(",")[1].strip('"')
-                            cmd = f'taskkill /f /pid {pid}'
-                            subprocess.run(cmd, shell=True)
-                            break
-                except Exception as e:
-                    print(f"Error focusing server window: {e}")
-                    messagebox.showinfo("Server Running", "The server is already running but couldn't be focused.")
-            
-            elif platform.system() == "Linux":
-                # On Linux, we can use the wmctrl command to bring the window to front
-                try:
-                    cmd = "wmctrl -a 'Remote Control Server'"
-                    subprocess.run(cmd, shell=True)
-                except Exception as e:
-                    print(f"Error focusing server window: {e}")
-                    messagebox.showinfo("Server Running", "The server is already running but couldn't be focused.")
-
-            elif platform.system() == "Darwin":
-                # On macOS, we can use the osascript command to bring the window to front
-                try:
-                    cmd = f"""osascript -e 'tell application "Terminal" to activate'"""
-                    subprocess.run(cmd, shell=True)
-                except Exception as e:
-                    print(f"Error focusing server window: {e}")
-                    messagebox.showinfo("Server Running", "The server is already running but couldn't be focused.")
+                    import win32gui
+                    import win32con
+                    
+                    def callback(hwnd, extra):
+                        if win32gui.IsWindowVisible(hwnd):
+                            title = win32gui.GetWindowText(hwnd)
+                            if "Remote Control Server" in title:
+                                # Found the server window, bring it to front
+                                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                                win32gui.SetForegroundWindow(hwnd)
+                                return False  # Stop enumeration
+                        return True  # Continue enumeration
+                    
+                    win32gui.EnumWindows(callback, None)
+                    
+                except ImportError:
+                    # win32gui not available, show message to user
+                    messagebox.showinfo("Server Running", "The server is already running.")
             else:
                 # On other platforms, just show a message
                 messagebox.showinfo("Server Running", "The server is already running.")
@@ -634,7 +609,7 @@ class RemoteControlManager:
         else:
             self.server_status_var.set("Server: Not Running")
             self.server_btn.config(text="Start Server")
-            self.server_process = None
+            self.opened_server = None
             
         # Schedule next check after 2 seconds
         self.root.after(2000, self.check_server_status)
@@ -673,7 +648,7 @@ class RemoteControlManager:
             
         except Exception as e:
             print(f"Error stopping server: {e}")
-    
+
     def on_close(self):
         """Handle window close event"""
         # Save any unsaved changes
@@ -688,7 +663,48 @@ class RemoteControlManager:
         """Run the manager application"""
         self.root.mainloop()
 
-def main():
+def open_client_form(client,client_id):
+    
+    # Determine the correct path to Client.py
+    if getattr(sys, 'frozen', False):
+        # If running as a bundled executable
+        base_path = sys._MEIPASS
+    else:
+        # If running as a script
+        base_path = os.path.dirname(__file__)
+    
+    client_script = os.path.join(base_path, "Client.py")
+    lg.logger.debug(f"client_script: {client_script}")
+    
+    # Function to run the client script
+    cmd = [
+        sys.executable, client_script,
+        "--host", client.host,
+        "--port", str(client.port),
+        "--password", client.password,
+        "--client-id", client_id
+    ]
+    lg.logger.debug(f"cmd: {cmd}")             
+    subprocess.run(cmd)
+
+def open_server_form():
+    # Determine the correct path to Server.py
+    if getattr(sys, 'frozen', False):
+        # If running as a bundled executable
+        base_path = sys._MEIPASS
+    else:
+        # If running as a script
+        base_path = os.path.dirname(__file__)
+    
+    server_script = os.path.join(base_path, "Server.py")
+    lg.logger.debug(f"server_script: {server_script}")       
+    cmd = [sys.executable, server_script]
+    lg.logger.debug(f"cmd: {cmd}")
+    subprocess.run(cmd)
+
+if __name__ == "__main__":
+    
+    multiprocessing.freeze_support()
     lg.logger.debug("Main.main() called")
     manager = RemoteControlManager()    
     lg.logger.debug("calling RemoteControlManager.run()")

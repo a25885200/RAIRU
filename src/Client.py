@@ -15,14 +15,14 @@ from datetime import datetime
 import time
 import LoggingHD as lg
 
+
 import argparse
 import Globals as gb
 # Import the UI parser
 from ui_parser import TkUIParser
-xml_ui = gb.get_client_ui_xml_path()
 
 class RemoteControlClient:
-    def __init__(self, host='localhost', port=5000, password='secure_password', client_id=None):
+    def __init__(self, host='localhost', port=5000, password='secure_password', client_id=None, root=None):
         
         lg.logger.debug("initiating Client")
         """Initialize the Remote Control Client application"""
@@ -62,6 +62,8 @@ class RemoteControlClient:
         """Set up the GUI from XML definition"""
         try:
             # Create UI parser and parse the XML file
+            xml_ui = gb.get_client_ui_xml_path()
+            lg.logger.debug(f"xml_ui: {xml_ui}") 
             parser = TkUIParser(self)
             parser.parse_file(xml_ui)
             
@@ -773,23 +775,23 @@ class RemoteControlClient:
         """Run the client application"""
         self.root.mainloop()
 
+if __name__ == "__main__":
+    lg.logger.debug("Parse Client arguments")
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Remote Control Client')
+    parser.add_argument('--host', type=str, default='localhost', help='Host to connect to')
+    parser.add_argument('--port', type=int, default=5000, help='Port to connect to')
+    parser.add_argument('--password', type=str, default='secure_password', help='Password for authentication')
+    parser.add_argument('--client-id', type=str, help='Client ID for updating connection status')
 
-lg.logger.debug("Parse Client arguments")
-# Parse command line arguments
-parser = argparse.ArgumentParser(description='Remote Control Client')
-parser.add_argument('--host', type=str, default='localhost', help='Host to connect to')
-parser.add_argument('--port', type=int, default=5000, help='Port to connect to')
-parser.add_argument('--password', type=str, default='secure_password', help='Password for authentication')
-parser.add_argument('--client-id', type=str, help='Client ID for updating connection status')
+    args = parser.parse_args()
 
-args = parser.parse_args()
+    client = RemoteControlClient(
+        host=args.host,
+        port=args.port,
+        password=args.password,
+        client_id=args.client_id
+    )
 
-client = RemoteControlClient(
-    host=args.host,
-    port=args.port,
-    password=args.password,
-    client_id=args.client_id
-)
-
-lg.logger.debug("calling RemoteControlClient.run()")
-client.run()
+    lg.logger.debug("calling RemoteControlClient.run()")
+    client.run()
