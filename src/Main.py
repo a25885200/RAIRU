@@ -11,6 +11,8 @@ from ui_parser import TkUIParser
 import Globals as gb
 import LoggingHD as lg
 import multiprocessing
+import Server as sv
+import Client as cl
 
 class ClientData:
     """Class to hold client connection data"""
@@ -664,7 +666,7 @@ class RemoteControlManager:
         self.root.mainloop()
 
 def open_client_form(client,client_id):
-    
+    """
     # Determine the correct path to Client.py
     if getattr(sys, 'frozen', False):
         # If running as a bundled executable
@@ -686,8 +688,12 @@ def open_client_form(client,client_id):
     ]
     lg.logger.debug(f"cmd: {cmd}")             
     subprocess.run(cmd)
-
+    """
+    client_form = cl.RemoteControlClient(client.host,str(client.port),client.password,client_id,tk)
+    client_form.run()
+    
 def open_server_form():
+    """
     # Determine the correct path to Server.py
     if getattr(sys, 'frozen', False):
         # If running as a bundled executable
@@ -701,6 +707,12 @@ def open_server_form():
     cmd = [sys.executable, server_script]
     lg.logger.debug(f"cmd: {cmd}")
     subprocess.run(cmd)
+    """
+    server_form = sv.RemoteControlServer(tk)
+    server_form.run()
+
+
+
 
 if __name__ == "__main__":
     
