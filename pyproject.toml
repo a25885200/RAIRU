@@ -1,6 +1,6 @@
 [project]
 name = "RAIRU"
-version = "0.1.1"
+version = "v0.1.1-alpha"
 description = "Remote control"
 authors = [
     { name="Tim Leung", email="timwork0314@gmail.com" }

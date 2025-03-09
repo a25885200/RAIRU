@@ -15,7 +15,7 @@ import sys
 
 __application_name = "RAIRU"
 __description = ""
-__application_version = "0.1.1"
+__application_version = "v0.1.1-alpha"
 
 __xml_key = "wupH_xMcVbS_j2SvAXguZGbGRY6tF__PsvEqcNyNpkE="
 __max_client = 3

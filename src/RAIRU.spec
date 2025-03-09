@@ -7,15 +7,17 @@ block_cipher = None
 a = Analysis(
     ['Run.py'],
     pathex=['J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\src'],
-    binaries=[],
+    binaries=[
+        # Add additional binaries here, e.g.,
+        # ('path/to/binary.exe', 'destination_folder'),
+    ],
     datas=[
         ('assets/forms/*', 'assets/forms'),  # Include forms directory
         ('assets/configs/*', 'assets/configs'),  # Include configs directory
         ('assets/img/*', 'assets/img'),  # Include img directory
-        #('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\LICENSE.txt'), #Include LICENSE
-        #('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\pyproject.toml'), #Include pyproject
-        #('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\README.md'), #Include README
-        #('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\*', '.'),  # Include all files and folders
+        ('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\LICENSE.txt', '.'),  # Include LICENSE
+        ('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\pyproject.toml', '.'),  # Include pyproject
+        ('J:\\Remote Control Software\\Master\\dev_rairu\\RAIRU\\README.md', '.'),  # Include README
     ],
     hiddenimports=[],
     hookspath=[],
@@ -26,6 +28,7 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -33,7 +36,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='RAIRU',
+    name='RAIRU-v0.1.1-alpha',  # Include version in the executable name
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -49,6 +52,6 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='RAIRU',
-    outdir='j:\\Remote Control Software\\Master\\dist'
+    name='RAIRU-v0.1.1-alpha',  # Include version in the collected folder name
+    outdir='J:\\Remote Control Software\\Master\\dist'  # Ensure this path exists
 )
