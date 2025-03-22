@@ -1,7 +1,7 @@
 import os
 import Main as mm
 import Globals as gb
-import lib.LoggingHD as lg
+import common.LoggingHD as lg
 from pathlib import Path
 import Main as mm
 

@@ -1,7 +1,7 @@
-from lib.util import *
+from common.util import *
 import tkinter as tk
-import lib.LoggingHD as lg
-from lib.Connection import Connection as ClientConnection # Import the correct class
+import common.LoggingHD as lg
+from common.Connection import Connection as ClientConnection # Import the correct class
 from client.Client_Event_Handler import EventHandler
 import Globals as gb
 from client.Client_Command import CommandInvoker

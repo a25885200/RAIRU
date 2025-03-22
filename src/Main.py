@@ -5,11 +5,11 @@
 #
 
 
-from lib.util import *
+from common.util import *
 
 import tkinter as tk
 import Globals as gb
-import lib.LoggingHD as lg
+import common.LoggingHD as lg
 import multiprocessing
 import server.Server as sv
 import client.Client as cl
