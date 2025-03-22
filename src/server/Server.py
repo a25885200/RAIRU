@@ -39,7 +39,6 @@ class RemoteControlServer:
         
         # Create UI from XML definition
         self.setup_gui()
-
     
     def setup_gui(self):
         """Set up the GUI from XML definition"""

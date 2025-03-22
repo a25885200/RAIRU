@@ -667,56 +667,14 @@ class RemoteControlManager:
         self.root.mainloop()
 
 def open_client_form(client,client_id):
-    """
-    # Determine the correct path to Client.py
-    if getattr(sys, 'frozen', False):
-        # If running as a bundled executable
-        base_path = sys._MEIPASS
-    else:
-        # If running as a script
-        base_path = os.path.dirname(__file__)
-    
-    client_script = os.path.join(base_path, "Client.py")
-    lg.logger.debug(f"client_script: {client_script}")
-    
-    # Function to run the client script
-    cmd = [
-        sys.executable, client_script,
-        "--host", client.host,
-        "--port", str(client.port),
-        "--password", client.password,
-        "--client-id", client_id
-    ]
-    lg.logger.debug(f"cmd: {cmd}")             
-    subprocess.run(cmd)
-    """
     client_form = cl.RemoteControlClient(client.host,str(client.port),client.password,client_id,tk)
     client_form.run()
 
 def open_server_form():
-    """
-    # Determine the correct path to Server.py
-    if getattr(sys, 'frozen', False):
-        # If running as a bundled executable
-        base_path = sys._MEIPASS
-    else:
-        # If running as a script
-        base_path = os.path.dirname(__file__)
-    
-    server_script = os.path.join(base_path, "Server.py")
-    lg.logger.debug(f"server_script: {server_script}")       
-    cmd = [sys.executable, server_script]
-    lg.logger.debug(f"cmd: {cmd}")
-    subprocess.run(cmd)
-    """
     server_form = sv.RemoteControlServer(tk)
     server_form.run()
 
-
-
-
 if __name__ == "__main__":
-    
     multiprocessing.freeze_support()
     lg.logger.debug("Main.main() called")
     manager = RemoteControlManager()    

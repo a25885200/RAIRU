@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root>
-    <application title="Remote Control Client" geometry="1200x800" min-width="800" min-height="600" />
+    <application title="Remote Control Client" geometry="1200x800" min-width="800" min-height="800" />
     
     <ui>
         <!-- Variables -->
@@ -9,99 +9,131 @@
         <var id="password_var" type="string" value="secure_password" />
         <var id="show_password_var" type="boolean" value="false" />
         <var id="status_var" type="string" value="Disconnected" />
-        <var id="mouse_tracking_var" type="boolean" value="true" />
-        <var id="keyboard_input_var" type="boolean" value="true" />
+        <var id="mouse_tracking_var" type="boolean" value="false" />
+        <var id="keyboard_input_var" type="boolean" value="false" />
+        <var id="is_relative_var" type="boolean" value="false" />
         
         <!-- Main Frame with two columns -->
-        <frame id="main_frame" layout="pack" fill="both" expand="true" padx="10" pady="10">
+        <frame id="main_frame" padding="10" layout="pack" fill="both" expand="true">
             
+            <!-- Status bar -->
+            <frame id="status_bar" layout="pack" side="bottom" fill="x" pady="5,0">
+                <label id="cursor_pos_label" text="Position: 0, 0" layout="pack" side="left" />
+                <label id="screen_size_label" text="Remote Screen: Not connected" layout="pack" side="right" />
+            </frame>
             <!-- Left column for controls -->
             <frame id="left_frame" width="300" layout="pack" side="left" fill="y" padx="0,10">
-                
-                <!-- Connection frame -->
-                <labelframe id="conn_frame" text="Connection" padding="10" layout="pack" fill="x" pady="5">
+
+                <canvas id="left_frame_canvas" bg="white" layout="pack" fill="x" side="top" expand="false">
+                    <!-- Connection frame -->
+                    <labelframe id="conn_frame" text="Connection" padding="0" layout="pack" fill="x" pady="0">
+                        
+                        <!-- Host input -->
+                        <frame id="host_frame" layout="pack" fill="x" pady="5">
+                            <label text="Host:" layout="pack" side="left" />
+                            <entry id="host_entry" textvariable="host_var" layout="pack" side="right" fill="x" expand="true" padx="10,0" />
+                        </frame>
+                        
+                        <!-- Port input -->
+                        <frame id="port_frame" layout="pack" fill="x" pady="5">
+                            <label text="Port:" layout="pack" side="left" />
+                            <entry id="port_entry" textvariable="port_var" width="8" layout="pack" side="right" padx="10,0" />
+                        </frame>
+                        
+                        <!-- Password input -->
+                        <frame id="pass_frame" layout="pack" fill="x" pady="5">
+                            <label text="Password:" layout="pack" side="left" />
+                            <entry id="pass_entry" textvariable="password_var" show="•" layout="pack" side="right" fill="x" expand="true" padx="10,0" />
+                        </frame>
+                        
+                        <!-- Show/hide password checkbox -->
+                        <frame id="show_pass_frame" layout="pack" fill="x" pady="5">
+                            <checkbutton id="show_pass_check" text="Show Password" variable="show_password_var" command="toggle_password_visibility" layout="pack" side="left" />
+                        </frame>
+                        
+                        <!-- Connection status -->
+                        <frame id="status_frame" layout="pack" fill="x" pady="5">
+                            <label text="Status:" layout="pack" side="left" />
+                            <label id="status_label" textvariable="status_var" foreground="red" layout="pack" side="right" />
+                        </frame>
+                        
+                        <!-- Connect button -->
+                        <button id="connect_btn" text="Connect" command="connect" layout="pack" fill="x" pady="5" />
+                    </labelframe>
                     
-                    <!-- Host input -->
-                    <frame id="host_frame" layout="pack" fill="x" pady="5">
-                        <label text="Host:" layout="pack" side="left" />
-                        <entry id="host_entry" textvariable="host_var" layout="pack" side="right" fill="x" expand="true" padx="10,0" />
-                    </frame>
+                    <!-- Controls frame -->
+                    <labelframe id="controls_frame" text="Controls" padding="10" layout="pack" fill="x" pady="0">
+                        
+                        <!-- Mouse controls -->
+                        <frame id="mouse_frame" layout="pack" fill="x" pady="5">
+                            <label text="Mouse:" layout="pack" side="left" />
+                            <checkbutton id="mouse_track_check" text="Enable Mouse" variable="mouse_tracking_var" state="disabled" layout="pack" side="right" />
+                        </frame>
+                        
+                        <!-- Keyboard controls -->
+                        <frame id="keyboard_frame" layout="pack" fill="x" pady="5">
+                            <label text="Keyboard:" layout="pack" side="left" />
+                            <checkbutton id="keyboard_input_check" text="Enable Keyboard" variable="keyboard_input_var" state="disabled" layout="pack" side="right" />
+                        </frame>
+                        
+                        <!-- Remote text input -->
+                        <frame id="text_input_frame" layout="pack" fill="x" pady="5">
+                            <entry id="text_input" state="disabled" layout="pack" side="left" fill="x" expand="true" />
+                            <button id="send_text_btn" text="Send" command="send_text" state="disabled" layout="pack" side="right" padx="5,0" />
+                        </frame>
+                    </labelframe>
                     
-                    <!-- Port input -->
-                    <frame id="port_frame" layout="pack" fill="x" pady="5">
-                        <label text="Port:" layout="pack" side="left" />
-                        <entry id="port_entry" textvariable="port_var" width="8" layout="pack" side="right" padx="10,0" />
-                    </frame>
+                    <!-- File transfer frame -->
+                    <labelframe id="file_frame" text="File Transfer" padding="10" layout="pack" fill="x" pady="0">
+                        <button id="upload_btn" text="Upload File" command="upload_file" state="disabled" layout="pack" fill="x" pady="5" />
+                        <button id="download_btn" text="Download File" command="download_file" state="disabled" layout="pack" fill="x" pady="5" />
+                    </labelframe>
                     
-                    <!-- Password input -->
-                    <frame id="pass_frame" layout="pack" fill="x" pady="5">
-                        <label text="Password:" layout="pack" side="left" />
-                        <entry id="pass_entry" textvariable="password_var" show="•" layout="pack" side="right" fill="x" expand="true" padx="10,0" />
+                    <!-- Log section -->
+                    <labelframe id="log_frame" text="Activity Log" padding="10" layout="pack" fill="both" expand="true" pady="0">
+                        <scrolledtext id="log_text" wrap="word" layout="pack" fill="both" expand="true" />
+                    </labelframe>
+                </canvas> 
+            </frame>
+              
+
+            <!-- Right column for remote screen -->
+            <labelframe id="right_frame" text="Remote Controller" layout="pack" side="right" fill="both" padding="10" expand="true">
+            
+                <labelframe id="screen_frame" text="Screen" padding="0" layout="pack" side="top" fill="both" pady="0" expand="true">
+                    <!-- Canvas for screen display -->
+                    <frame id="canvas_frame" layout="pack" fill="both" expand="true">
+                        <scrollbar id="canvas_h_scrollbar" orient="horizontal" layout="pack" side="bottom" fill="x" />
+                        <scrollbar id="canvas_v_scrollbar" orient="vertical" layout="pack" side="right" fill="y" />
+                        <canvas id="canvas" bg="black" layout="pack" fill="both" expand="true"/>
                     </frame>
+
                     
                     <!-- Show/hide password checkbox -->
-                    <frame id="show_pass_frame" layout="pack" fill="x" pady="5">
-                        <checkbutton id="show_pass_check" text="Show Password" variable="show_password_var" command="toggle_password_visibility" layout="pack" side="left" />
-                    </frame>
-                    
-                    <!-- Connection status -->
-                    <frame id="status_frame" layout="pack" fill="x" pady="5">
-                        <label text="Status:" layout="pack" side="left" />
-                        <label id="status_label" textvariable="status_var" foreground="red" layout="pack" side="right" />
-                    </frame>
-                    
-                    <!-- Connect button -->
-                    <button id="connect_btn" text="Connect" command="connect" layout="pack" fill="x" pady="5" />
-                </labelframe>
-                
-                <!-- Controls frame -->
-                <labelframe id="controls_frame" text="Controls" padding="10" layout="pack" fill="x" pady="10">
-                    
-                    <!-- Mouse controls -->
-                    <frame id="mouse_frame" layout="pack" fill="x" pady="5">
-                        <label text="Mouse:" layout="pack" side="left" />
-                        <checkbutton id="mouse_track_check" text="Enable Mouse" variable="mouse_tracking_var" state="disabled" layout="pack" side="right" />
-                    </frame>
-                    
-                    <!-- Keyboard controls -->
-                    <frame id="keyboard_frame" layout="pack" fill="x" pady="5">
-                        <label text="Keyboard:" layout="pack" side="left" />
-                        <checkbutton id="keyboard_input_check" text="Enable Keyboard" variable="keyboard_input_var" state="disabled" layout="pack" side="right" />
-                    </frame>
-                    
-                    <!-- Remote text input -->
-                    <frame id="text_input_frame" layout="pack" fill="x" pady="5">
-                        <entry id="text_input" state="disabled" layout="pack" side="left" fill="x" expand="true" />
-                        <button id="send_text_btn" text="Send" command="send_text" state="disabled" layout="pack" side="right" padx="5,0" />
+                    <frame id="show_pass_frame" layout="pack" fill="x" side="bottom" pady="5">
+                        <checkbutton id="check_is_relative" text="Is Relative" variable="is_relative_var" command="toggle_screen_relative" layout="pack" side="left" />
                     </frame>
                 </labelframe>
-                
-                <!-- File transfer frame -->
-                <labelframe id="file_frame" text="File Transfer" padding="10" layout="pack" fill="x" pady="10">
-                    <button id="upload_btn" text="Upload File" command="upload_file" state="disabled" layout="pack" fill="x" pady="5" />
-                    <button id="download_btn" text="Download File" command="download_file" state="disabled" layout="pack" fill="x" pady="5" />
+                <!-- Display Script Controller -->
+                <labelframe id="script_frame" text="Script Controller" padding="0" layout="pack" side="bottom" fill="x" pady="0" expand="false">
+                    <!-- Command log-->
+                    <labelframe id="command_log_frame" text="Command Log" padding="10" layout="pack" side="top" fill="both" expand="true" pady="0">
+                        <scrolledtext id="command_log_text" wrap="word" layout="pack" fill="both" expand="true" />
+                    </labelframe>
+                    <!-- Command input -->
+                    <frame id="command_input_frame" layout="pack" side="bottom" fill="x" pady="5" expand="false">
+                        <label text="Command:" layout="pack" side="left" />
+                        <button id="command_btn" text="Send" command="send_command" side="right" layout="pack" fill="x" pady="5" />
+                        <entry id="command_entry" textvariable="" layout="pack" fill="x" expand="true" padx="10,0" />
+                    </frame>
+
                 </labelframe>
-                
-                <!-- Log section -->
-                <labelframe id="log_frame" text="Activity Log" padding="10" layout="pack" fill="both" expand="true" pady="10">
-                    <scrolledtext id="log_text" wrap="word" layout="pack" fill="both" expand="true" />
-                </labelframe>
-            </frame>
-            
-            <!-- Right column for remote screen -->
-            <labelframe id="screen_frame" text="Remote Screen" padding="10" layout="pack" side="right" fill="both" expand="true">
-                
-                <!-- Canvas for screen display -->
-                <frame id="canvas_frame" layout="pack" fill="both" expand="true">
-                    <canvas id="canvas" bg="black" layout="pack" fill="both" expand="true" />
-                </frame>
-                
-                <!-- Status bar -->
-                <frame id="status_bar" layout="pack" fill="x" pady="5,0">
-                    <label id="cursor_pos_label" text="Position: 0, 0" layout="pack" side="left" />
-                    <label id="screen_size_label" text="Remote Screen: Not connected" layout="pack" side="right" />
-                </frame>
+
+
+
             </labelframe>
+            
+
         </frame>
     </ui>
 </root>

@@ -36,7 +36,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='RAIRU-v0.1.1-alpha',  # Include version in the executable name
+    name='RAIRU-v0.1.1.2-alpha',  # Include version in the executable name
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -52,6 +52,6 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='RAIRU-v0.1.1-alpha',  # Include version in the collected folder name
+    name='RAIRU-v0.1.1.2-alpha',  # Include version in the collected folder name
     outdir='J:\\Remote Control Software\\Master\\dist'  # Ensure this path exists
 )

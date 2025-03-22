@@ -1,20 +1,20 @@
-
-
 from lib.util import *
 import tkinter as tk
-import numpy as np
 import lib.LoggingHD as lg
+from lib.Connection import Connection as ClientConnection # Import the correct class
+from client.Client_Event_Handler import EventHandler
 import Globals as gb
+from client.Client_Command import CommandInvoker
 
 class RemoteControlClient:
     def __init__(self, host='localhost', port=5000, password='secure_password', client_id=None, root=None):
-        
         lg.logger.debug("initiating Client")
         """Initialize the Remote Control Client application"""
         self.host = host
         self.port = port
         self.password = password
         self.client_id = client_id  # Used for updating connection status
+        self.conn = ClientConnection(self.host, self.port, self.password, self.client_id)  # Use the correct class
         self.socket = None
         self.connected = False
         self.cipher = None
@@ -23,6 +23,7 @@ class RemoteControlClient:
         self.screen_running = False     
         self.screen_thread = None
         self.update_interval = 0.1  # seconds
+        self.is_screen_relative = False
         
         # Remote screen dimensions
         self.remote_width = 0
@@ -37,12 +38,16 @@ class RemoteControlClient:
         
         # Create UI from XML definition
         self.setup_gui()
+        self.enable_controls(True)
+
+        # Initialize EventHandler
+        self.event_handler = EventHandler(self.conn)
+        self.command_invoker = CommandInvoker(self.event_handler)
         
         # Auto-connect if parameters were provided
         if host != 'localhost' or port != 5000 or password != 'secure_password':
             self.root.after(500, self.auto_connect)
     
-
     def setup_gui(self):
         """Set up the GUI from XML definition"""
         try:
@@ -53,10 +58,13 @@ class RemoteControlClient:
             parser.parse_file(xml_ui)
             
             # Add scrollbars to canvas
-            self.h_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
-            self.v_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+
+            self.canvas_v_scrollbar.config(command=self.canvas.yview)
+            self.canvas_h_scrollbar.config(command=self.canvas.xview)
             
-            self.canvas.config(xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
+            # self.h_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
+            # self.v_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+            self.canvas.config(xscrollcommand=self.canvas_h_scrollbar.set, yscrollcommand=self.canvas_v_scrollbar.set)
             
             # Bind mouse events to canvas
             self.canvas.bind("<Button-1>", self.on_mouse_click)
@@ -88,17 +96,102 @@ class RemoteControlClient:
             traceback.print_exc()
             messagebox.showerror("Error", f"Failed to load UI: {str(e)}")
 
-    def auto_connect(self):
-        """Automatically connect using provided parameters"""
-        self.connect()
-    
+    ### Other User Control    
+    def enable_controls(self, enabled):
+        """Enable or disable controls based on connection state"""
+        state = tk.NORMAL if enabled else tk.DISABLED
+        
+        # Mouse and keyboard controls
+        self.mouse_track_check.config(state=state)
+        self.keyboard_input_check.config(state=state)
+        
+        # Text input
+        self.text_input.config(state=state)
+        self.send_text_btn.config(state=state)
+        
+        # File transfer
+        self.upload_btn.config(state=state)
+        self.download_btn.config(state=state)
+
+    def toggle_screen_relative(self):
+        self.is_screen_relative = self.is_relative_var.get()
+        
     def toggle_password_visibility(self, event=None):
         """Toggle password visibility in the UI"""
         if self.show_password_var.get():
             self.pass_entry.config(show="")
         else:
             self.pass_entry.config(show="•")
+
+    def _display_image(self, image):
+        """Display an image on the canvas"""
+        try:
+            tk_img = PIL.ImageTk.PhotoImage(image)
+            # self.canvas.delete("all")
+            # self.canvas.create_image(0, 0, anchor="nw", image=tk_img)
+            # self.canvas.image = tk_img  # Keep reference to prevent garbage collection
+        
+            # Update on main thread
+            self.root.after(0, lambda: self._update_canvas(tk_img, image.width, image.height))
+        except Exception as e:
+            print(f"Display error: {str(e)}")
+
+    def _update_canvas(self, tk_img, width, height):
+        """Update the canvas with a new image (runs on main thread)"""
+        try:
+            # Clear canvas
+            self.canvas.delete("all")
+            
+            # Determine image position
+            if self.is_screen_relative:
+                canvas_width = self.canvas.winfo_width()
+                canvas_height = self.canvas.winfo_height()
+                x_offset = max((canvas_width - width) // 2, 0)
+                y_offset = max((canvas_height - height) // 2, 0)
+            else:
+                x_offset, y_offset = 0, 0
+            
+            # Create image on canvas
+            self.canvas.create_image(x_offset, y_offset, anchor=tk.NW, image=tk_img)
+            self.canvas.image = tk_img  # Keep reference to prevent garbage collection
+            
+            # Update canvas scrollregion
+            self.canvas.config(scrollregion=(0, 0, width, height))
+        
+        except Exception as e:
+            print(f"Canvas update error: {e}")
     
+    def send_command(self):
+        """Send a command from the command entry field"""
+        command_text = self.command_entry.get().strip()
+        if not command_text:
+            return
+        try:
+            # Example: Parse command and arguments (e.g., "mouse_move 100 200")
+            parts = command_text.split()
+            command_name = parts[0]
+            args = parts[1:]
+            result_message = self.command_invoker.execute_command(command_name, *args)
+            self._log_command(result_message)
+        except Exception as e:
+            self._log_command(f"Error executing command: {e}")
+        finally:
+            self.command_entry.delete(0, tk.END)
+
+    def _log_command(self, message):
+        """Log a message to the command log"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        log_message = f"[{timestamp}] {message}"
+        self.command_log_text.config(state=tk.NORMAL)
+        self.command_log_text.insert(tk.END, log_message + "\n")
+        self.command_log_text.see(tk.END)
+        self.command_log_text.config(state=tk.DISABLED)
+    
+    ### Connection
+    def auto_connect(self):
+        """Automatically connect using provided parameters"""
+        self.connect()
+
     def update_connect_button(self):
         """Enable/disable connect button based on input fields"""
         host = self.host_var.get().strip()
@@ -117,39 +210,24 @@ class RemoteControlClient:
     
     def connect(self):
         """Connect to the remote server"""
-        if self.connected:
-            self.disconnect()
-            return
-        
         try:
-            # Get connection details from UI
-            self.host = self.host_var.get().strip()
-            self.port = int(self.port_var.get())
-            self.password = self.password_var.get().strip()
+            self.conn.host = self.host_var.get().strip()
+            self.conn.port = self.port_var.get()
+            self.conn.password = self.password_var.get().strip()
+            self.conn.client_id = self.client_id 
             
-            # Update status
             self.status_var.set("Connecting...")
-            self.root.update()
-            
-            # Generate encryption key from password
-            key = base64.urlsafe_b64encode(self.password.ljust(32)[:32].encode())
-            self.cipher = Fernet(key)
-            
-            # Create socket and connect
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(5)  # 5 second timeout for connection
-            self.socket.connect((self.host, self.port))
-            
+            #self.root.update()
+            self.conn.connect()
+
+
             # Authenticate
-            if self.authenticate():
-                self.socket.settimeout(None)  # Remove timeout after successful connection
-                self.connected = True
+            self.connected = self.conn.connected
+            if self.conn.connected:
                 self.status_var.set("Connected")
-                
-                # Update button states
                 self.connect_btn.config(text="Disconnect")
                 self.enable_controls(True)
-                
+
                 # Start screen updates
                 self.screen_running = True
                 self.screen_thread = threading.Thread(target=self.update_screen)
@@ -157,40 +235,72 @@ class RemoteControlClient:
                 self.screen_thread.start()
                 
                 self.log(f"Connected to {self.host}:{self.port}")
-                
-                # Update connection status in manager if client_id is provided
-                self.update_manager_connection_status()
-                
-            else:
-                self.status_var.set("Authentication Failed")
-                if self.socket:
-                    self.socket.close()
-                    self.socket = None
-                self.log(f"Authentication failed for {self.host}:{self.port}")
-        
-        except socket.timeout:
-            messagebox.showerror("Connection Error", f"Connection to {self.host}:{self.port} timed out")
-            self.status_var.set("Connection Timeout")
-            if self.socket:
-                self.socket.close()
-                self.socket = None
-            self.log(f"Connection timeout: {self.host}:{self.port}")
-        
-        except ConnectionRefusedError:
-            messagebox.showerror("Connection Error", f"Connection to {self.host}:{self.port} refused")
-            self.status_var.set("Connection Refused")
-            if self.socket:
-                self.socket.close()
-                self.socket = None
-            self.log(f"Connection refused: {self.host}:{self.port}")
-        
+                self.conn.update_manager_connection_status(gb.get_client_data_config_path())
+            
         except Exception as e:
-            messagebox.showerror("Connection Error", str(e))
             self.status_var.set("Connection Error")
-            if self.socket:
-                self.socket.close()
-                self.socket = None
-            self.log(f"Connection error: {str(e)}")
+            self.log(f"Connection error: {e}")
+            tk.messagebox.showerror("Connection Error", e)
+
+    def update_screen(self):
+        """Continuously update the screen with data from the server"""
+        while self.screen_running and self.connected:
+            start_time = time.time()
+            screen_data = self.event_handler.receive_screen()
+            if not screen_data:
+                break
+            
+            # Update remote screen dimensions
+            self.remote_width = screen_data['width']
+            self.remote_height = screen_data['height']
+
+            # Update remote screen dimensions
+            self.root.after(0, lambda: self.screen_size_label.config(
+                text=f"Remote Screen: {screen_data['width']}x{screen_data['height']}"
+            ))
+            
+            # Decode image
+            image_data = base64.b64decode(screen_data['image'])
+            
+            image_tensor = torch.tensor(list(image_data), dtype=torch.uint8).cuda()
+            
+            # Transfer the tensor back to CPU and convert to numpy array
+            image_array = image_tensor.detach().cpu().numpy()
+            image_array = np.frombuffer(image_data, dtype=np.uint8)
+            image = cv2.imdecode(image_array, cv2.IMREAD_COLOR_RGB)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            # Convert to PIL Image
+            pil_img = PIL.Image.fromarray(image)
+            
+            # Resize image to fit canvas while maintaining aspect ratio
+            if self.is_screen_relative:
+                canvas_width = self.canvas.winfo_width()
+                canvas_height = self.canvas.winfo_height()
+                scale = min(canvas_width / self.remote_width, canvas_height / self.remote_height)
+                new_width = int(self.remote_width * scale)
+                new_height = int(self.remote_height * scale)
+                pil_img = pil_img.resize((new_width, new_height), PIL.Image.LANCZOS)
+            
+            # Display the resized image
+            self._display_image(pil_img)
+            
+            # Calculate time to process and adjust delay
+            process_time = time.time() - start_time
+            delay = max(0.05, self.update_interval - process_time)
+            time.sleep(delay)
+
+    def disconnect(self):
+        """Disconnect from the server"""
+        self.screen_running = False  # Stop screen updates
+        self.connection.disconnect()
+        self.connected = False
+        self.status_var.set("Disconnected")
+        self.connect_btn.config(text="Connect")
+        self.enable_controls(False)
+        self.canvas.delete("all")
+        self.screen_size_label.config(text="Remote Screen: Not connected")
+        self.log("Disconnected from server")
     
     def update_manager_connection_status(self):
         """Update the connection status in the manager if client_id is set"""
@@ -219,530 +329,92 @@ class RemoteControlClient:
         except Exception as e:
             print(f"Error updating client connection status: {e}")
     
-    def authenticate(self):
-        """Authenticate with the server"""
-        try:
-            auth_data = {'password': self.password}
-            encrypted = self.cipher.encrypt(json.dumps(auth_data).encode())
-            self.socket.send(encrypted)
-            
-            # Receive response
-            response_data = self.socket.recv(1024)
-            decrypted = self.cipher.decrypt(response_data).decode()
-            response = json.loads(decrypted)
-            
-            return response.get('status') == 'success'
-        
-        except Exception as e:
-            self.log(f"Authentication error: {str(e)}")
-            return False
-    
-    def disconnect(self):
-        """Disconnect from the server"""
-        self.screen_running = False
-        if self.socket:
-            try:
-                self.socket.close()
-            except:
-                pass
-            self.socket = None
-        
-        self.connected = False
-        self.status_var.set("Disconnected")
-        
-        # Update button states
-        self.connect_btn.config(text="Connect")
-        self.enable_controls(False)
-        
-        # Clear the canvas
-        self.canvas.delete("all")
-        self.screen_size_label.config(text="Remote Screen: Not connected")
-        
-        self.log("Disconnected from server")
-    
-    def enable_controls(self, enabled):
-        """Enable or disable controls based on connection state"""
-        state = tk.NORMAL if enabled else tk.DISABLED
-        
-        # Mouse and keyboard controls
-        self.mouse_track_check.config(state=state)
-        self.keyboard_input_check.config(state=state)
-        
-        # Text input
-        self.text_input.config(state=state)
-        self.send_text_btn.config(state=state)
-        
-        # File transfer
-        self.upload_btn.config(state=state)
-        self.download_btn.config(state=state)
-    
-    def update_screen(self):
-        """Request and display screen updates from server"""
-        while self.screen_running and self.connected:
-            try:
-                start_time = time.time()
-                
-                # Request screen update
-                cmd = {'action': 'screen'}
-                encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-                self.socket.send(encrypted)
-                
-                # Receive data size
-                size_bytes = self.socket.recv(4)
-                if not size_bytes:
-                    break
-                
-                size = int.from_bytes(size_bytes, byteorder='big')
-                
-                # Receive screen data
-                data = b''
-                while len(data) < size:
-                    chunk = self.socket.recv(min(size - len(data), 8192))
-                    if not chunk:
-                        break
-                    data += chunk
-                
-                if not data:
-                    break
-                
-                # Decrypt and parse screen data
-                decrypted = self.cipher.decrypt(data).decode()
-                screen_data = json.loads(decrypted)
-                
-                # Update remote screen dimensions
-                self.remote_width = screen_data['width']
-                self.remote_height = screen_data['height']
-                
-                # Update screen size label in UI
-                self.root.after(0, lambda: self.screen_size_label.config(
-                    text=f"Remote Screen: {self.remote_width}x{self.remote_height}"
-                ))
-                
-                # Decode image
-                image_data = base64.b64decode(screen_data['image'])
-                # Convert the image data to a tensor on the GPU
-                image_tensor = torch.tensor(list(image_data), dtype=torch.uint8).cuda()
-                
-                # Transfer the tensor back to CPU and convert to numpy array
-                image_array = image_tensor.detach().cpu().numpy()
-                
-                # Decode the image using OpenCV
-                image = cv2.imdecode(np.frombuffer(image_array, dtype=np.uint8), cv2.IMREAD_COLOR_RGB)
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                
-                # Convert to PIL Image
-                pil_img = PIL.Image.fromarray(image)
-                
-                #image_array = np.frombuffer(image_data, dtype=np.uint8)
-                #image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-                #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                #
-                # Convert to PIL Image
-                #pil_img = PIL.Image.fromarray(image)
-                
-                # Display the image
-                self.display_image(pil_img)
-                
-                # Calculate time to process and adjust delay
-                process_time = time.time() - start_time
-                delay = max(0.05, self.update_interval - process_time)
-                time.sleep(delay)
-            
-            except Exception as e:
-                if self.screen_running:  # Only log if we're still running
-                    self.log(f"Screen update error: {str(e)}")
-                break
-        
-        if self.connected:
-            # If we broke out of the loop but are still connected, something went wrong
-            self.root.after(0, self.disconnect)
-    
-    def display_image(self, image):
-        """Display an image on the canvas"""
-        try:
-            # Convert PIL image to PhotoImage for Tkinter
-            tk_img = PIL.ImageTk.PhotoImage(image)
-            
-            # Update on main thread
-            self.root.after(0, lambda: self._update_canvas(tk_img, image.width, image.height))
-        
-        except Exception as e:
-            self.log(f"Display error: {str(e)}")
-    
-    def _update_canvas(self, tk_img, width, height):
-        """Update the canvas with a new image (runs on main thread)"""
-        try:
-            # Clear canvas
-            self.canvas.delete("all")
-            
-            # Create image on canvas
-            self.canvas.create_image(0, 0, anchor=tk.NW, image=tk_img)
-            self.canvas.image = tk_img  # Keep reference to prevent garbage collection
-            
-            # Update canvas scrollregion
-            self.canvas.config(scrollregion=(0, 0, width, height))
-            
-            # Show scrollbars if needed
-            canvas_width = self.canvas.winfo_width()
-            canvas_height = self.canvas.winfo_height()
-            
-            if width > canvas_width:
-                self.h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
-            else:
-                self.h_scrollbar.pack_forget()
-            
-            if height > canvas_height:
-                self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-            else:
-                self.v_scrollbar.pack_forget()
-        
-        except Exception as e:
-            print(f"Canvas update error: {e}")
-    
+    ### Mouse Control    
     def map_coordinates(self, x, y):
         """Map canvas coordinates to remote screen coordinates"""
-        # Get canvas view
         view_x = self.canvas.canvasx(x)
         view_y = self.canvas.canvasy(y)
-        
-        # Return raw coordinates - no scaling needed since we're not scaling the image
         return int(view_x), int(view_y)
-    
+
     def on_mouse_move(self, event):
-        """Handle mouse movement event"""
-        if not self.connected or not self.mouse_tracking_var.get():
-            return
-        
-        x, y = self.map_coordinates(event.x, event.y)
-        
-        # Update status bar
-        self.cursor_pos_label.config(text=f"Position: {x}, {y}")
-        
-        if self.mouse_dragging:
-            cmd = {
-                'action': 'mouse',
-                'type': 'drag',
-                'x': x,
-                'y': y,
-                'button': 'left'
-            }
-        else:
-            cmd = {
-                'action': 'mouse',
-                'type': 'move',
-                'x': x,
-                'y': y
-            }
-        
-        try:
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-        except:
-            pass
+        """Delegate mouse move event to EventHandler"""   
+        if not self.mouse_tracking_var.get():
+            return        
+        x, y = self.map_coordinates(event.x, event.y)     
+        self.cursor_label.config(text=f"Position: {x}, {y}")
+        self.event_handler.on_mouse_move(x, y)
     
     def on_mouse_click(self, event):
-        """Handle mouse click event"""
-        if not self.connected or not self.mouse_tracking_var.get():
-            return
-        
-        x, y = self.map_coordinates(event.x, event.y)
-        
-        cmd = {
-            'action': 'mouse',
-            'type': 'click',
-            'x': x,
-            'y': y,
-            'button': 'left'
-        }
-        
-        try:
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-            self.log(f"Mouse click at {x},{y}")
-        except Exception as e:
-            self.log(f"Error sending mouse click: {str(e)}")
+        """Delegate mouse click event to EventHandler"""
+        if not self.mouse_tracking_var.get():
+            return        
+        x, y = self.map_coordinates(event.x, event.y)     
+        self.event_handler.on_mouse_click(x, y)
     
     def on_mouse_double_click(self, event):
-        """Handle mouse double click event"""
-        if not self.connected or not self.mouse_tracking_var.get():
+        """Delegate mouse double click event to EventHandler"""
+        if not self.mouse_tracking_var.get():
             return
-        
         x, y = self.map_coordinates(event.x, event.y)
-        
-        cmd = {
-            'action': 'mouse',
-            'type': 'double_click',
-            'x': x,
-            'y': y,
-            'button': 'left'
-        }
-        
-        try:
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-            self.log(f"Mouse double-click at {x},{y}")
-        except Exception as e:
-            self.log(f"Error sending mouse double-click: {str(e)}")
+        self.event_handler.on_mouse_double_click(x, y)
     
     def on_mouse_drag(self, event):
-        """Handle mouse drag event"""
-        if not self.connected or not self.mouse_tracking_var.get():
+        """Delegate mouse drag event to EventHandler"""
+        if not self.mouse_tracking_var.get():
             return
         
-        self.mouse_dragging = True
         x, y = self.map_coordinates(event.x, event.y)
-        
-        cmd = {
-            'action': 'mouse',
-            'type': 'drag',
-            'x': x,
-            'y': y,
-            'button': 'left'
-        }
-        
-        try:
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-        except:
-            pass
+        self.event_handler.on_mouse_drag(x,y)
     
     def on_mouse_release(self, event):
-        """Handle mouse release event"""
-        self.mouse_dragging = False
+        """Delegate mouse release event to EventHandler"""
+        self.event_handler.on_mouse_release()
     
     def on_mouse_wheel(self, event):
-        """Handle mouse wheel event"""
-        if not self.connected or not self.mouse_tracking_var.get():
+        """Delegate mouse wheel event to EventHandler"""
+        if not self.mouse_tracking_var.get():
             return
         
-        # In Windows, event.delta is used
-        # Delta is positive when scrolling up, negative when scrolling down
-        amount = event.delta // 120  # Normalize to steps
-        
-        cmd = {
-            'action': 'mouse',
-            'type': 'scroll',
-            'amount': amount
-        }
-        
-        try:
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-            self.log(f"Mouse scroll: {amount}")
-        except Exception as e:
-            self.log(f"Error sending mouse scroll: {str(e)}")
+        amount = event.delta // 120
+        self.event_handler.on_mouse_wheel(amount)
     
+    ###KeyBoard Control
     def on_key_press(self, event):
-        """Handle key press event"""
-        if not self.connected or not self.keyboard_input_var.get():
-            return
-        
-        # Avoid capturing special keys meant for the UI
-        if event.widget != self.root and event.widget != self.canvas:
-            return
-        
-        # Get the key name
-        key = event.keysym
-        
-        # Special handling for modifier keys
-        if key in ('Control_L', 'Control_R', 'Alt_L', 'Alt_R', 'Shift_L', 'Shift_R'):
-            return
-        
-        # Check if any modifiers are pressed
+        """Delegate key press event to EventHandler"""
+        if not self.keyboard_input_var.get():
+            return        
+        key = event.keysym        
         modifiers = []
-        if event.state & 0x4:  # Control
+        if event.state & 0x4:
             modifiers.append('ctrl')
-        if event.state & 0x8:  # Alt
+        if event.state & 0x8:
             modifiers.append('alt')
-        if event.state & 0x1:  # Shift
+        if event.state & 0x1:
             modifiers.append('shift')
-        
-        if modifiers:
-            # Send hotkey command
-            cmd = {
-                'action': 'keyboard',
-                'type': 'hotkey',
-                'keys': modifiers + [key.lower()]
-            }
-            self.log(f"Keyboard hotkey: {'+'.join(modifiers + [key.lower()])}")
-        else:
-            # Send single key command
-            cmd = {
-                'action': 'keyboard',
-                'type': 'key',
-                'key': key.lower()
-            }
-            self.log(f"Keyboard key: {key.lower()}")
-        
-        try:
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-        except Exception as e:
-            self.log(f"Error sending keyboard input: {str(e)}")
+        self.event_handler.on_key_press(key, modifiers)
     
     def send_text(self):
         """Send text from the text input field"""
         if not self.connected:
             return
-        
         text = self.text_input.get()
-        if not text:
-            return
-        
-        cmd = {
-            'action': 'keyboard',
-            'type': 'write',
-            'text': text
-        }
-        
-        try:
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-            self.log(f"Sent text: {text}")
-            
-            # Clear the input field
-            self.text_input.delete(0, tk.END)
-        except Exception as e:
-            self.log(f"Error sending text: {str(e)}")
-    
+        self.event_handler.send_text(text)
+        self.text_input.delete(0, tk.END)
+
     def upload_file(self):
-        """Upload a file to the remote computer"""
+        """Delegate file upload to EventHandler"""
         if not self.connected:
             messagebox.showerror("Error", "Not connected to server")
             return
-        
-        # Open file dialog
-        file_path = filedialog.askopenfilename(title="Select File to Upload")
-        if not file_path:
-            return
-        
-        # Ask for remote path
-        remote_path = simpledialog.askstring(
-            "Remote Path", 
-            "Enter destination path on remote computer:",
-            initialvalue=os.path.basename(file_path)
-        )
-        if not remote_path:
-            return
-        
-        try:
-            # Get file size
-            file_size = os.path.getsize(file_path)
-            
-            # Send file upload command
-            cmd = {
-                'action': 'file_upload',
-                'path': remote_path,
-                'size': file_size
-            }
-            
-            self.log(f"Uploading {file_path} to {remote_path} ({file_size} bytes)")
-            
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-            
-            # Read and send file data
-            with open(file_path, 'rb') as file:
-                chunk_size = 4096
-                bytes_sent = 0
-                
-                while True:
-                    chunk = file.read(chunk_size)
-                    if not chunk:
-                        break
-                    
-                    encrypted_chunk = self.cipher.encrypt(chunk)
-                    self.socket.send(encrypted_chunk)
-                    
-                    bytes_sent += len(chunk)
-                    
-                    # Update progress in log
-                    if file_size > 1000000 and bytes_sent % 1000000 < chunk_size:
-                        self.log(f"Upload progress: {bytes_sent/file_size*100:.1f}% ({bytes_sent} bytes)")
-            
-            # Receive confirmation
-            response_data = self.socket.recv(1024)
-            decrypted = self.cipher.decrypt(response_data).decode()
-            response = json.loads(decrypted)
-            
-            if response.get('status') == 'success':
-                messagebox.showinfo("Success", "File uploaded successfully")
-                self.log("File upload completed successfully")
-            else:
-                messagebox.showerror("Error", response.get('message', 'Unknown error'))
-                self.log(f"File upload error: {response.get('message', 'Unknown error')}")
-        
-        except Exception as e:
-            messagebox.showerror("Upload Error", str(e))
-            self.log(f"Upload error: {str(e)}")
-    
+        self.event_handler.upload_file()
+
     def download_file(self):
-        """Download a file from the remote computer"""
+        """Delegate file download to EventHandler"""
         if not self.connected:
             messagebox.showerror("Error", "Not connected to server")
             return
-        
-        # Ask for remote path
-        remote_path = simpledialog.askstring("Remote Path", "Enter remote file path to download:")
-        if not remote_path:
-            return
-        
-        # Ask for local save path
-        local_path = filedialog.asksaveasfilename(
-            title="Save file locally as",
-            initialfile=os.path.basename(remote_path)
-        )
-        if not local_path:
-            return
-        
-        try:
-            # Send file download command
-            cmd = {
-                'action': 'file_download',
-                'path': remote_path
-            }
-            
-            self.log(f"Requesting download of {remote_path}")
-            
-            encrypted = self.cipher.encrypt(json.dumps(cmd).encode())
-            self.socket.send(encrypted)
-            
-            # Receive file size
-            size_data = self.socket.recv(1024)
-            decrypted = self.cipher.decrypt(size_data).decode()
-            size_info = json.loads(decrypted)
-            
-            if 'error' in size_info:
-                messagebox.showerror("Error", size_info['error'])
-                self.log(f"Download error: {size_info['error']}")
-                return
-            
-            file_size = size_info['size']
-            self.log(f"Downloading {remote_path} to {local_path} ({file_size} bytes)")
-            
-            # Receive file data
-            with open(local_path, 'wb') as file:
-                received = 0
-                while received < file_size:
-                    chunk = self.socket.recv(4096)
-                    if not chunk:
-                        break
-                    
-                    decrypted_chunk = self.cipher.decrypt(chunk)
-                    file.write(decrypted_chunk)
-                    received += len(decrypted_chunk)
-                    
-                    # Update progress in log
-                    if file_size > 1000000 and received % 1000000 < 4096:
-                        self.log(f"Download progress: {received/file_size*100:.1f}% ({received} bytes)")
-            
-            messagebox.showinfo("Success", "File downloaded successfully")
-            self.log("File download completed successfully")
-        
-        except Exception as e:
-            messagebox.showerror("Download Error", str(e))
-            self.log(f"Download error: {str(e)}")
-    
+        self.event_handler.download_file()
+
     def log(self, message):
         """Add a message to the log"""
         # This needs to be run on the main thread
@@ -760,10 +432,10 @@ class RemoteControlClient:
     
     def on_close(self):
         """Handle window close event"""
-        if self.connected:
+        if self.conn.connected:
             if messagebox.askyesno("Confirm Exit", "You are still connected. Disconnect and exit?"):
                 gb.sub_public_current_client()
-                self.disconnect()
+                self.conn.disconnect()
                 self.root.destroy()
         else:
             gb.sub_public_current_client()
