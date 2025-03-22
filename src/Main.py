@@ -5,14 +5,14 @@
 #
 
 
-from util import *
+from lib.util import *
 
 import tkinter as tk
 import Globals as gb
-import LoggingHD as lg
+import lib.LoggingHD as lg
 import multiprocessing
-import Server as sv
-import Client as cl
+import server.Server as sv
+import client.Client as cl
 import datetime
 
 class ClientData:

@@ -1,9 +1,9 @@
 
 
-from util import *
+from lib.util import *
 import tkinter as tk
 import numpy as np
-import LoggingHD as lg
+import lib.LoggingHD as lg
 import Globals as gb
 
 class RemoteControlClient:
@@ -320,12 +320,25 @@ class RemoteControlClient:
                 
                 # Decode image
                 image_data = base64.b64decode(screen_data['image'])
-                image_array = np.frombuffer(image_data, dtype=np.uint8)
-                image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+                # Convert the image data to a tensor on the GPU
+                image_tensor = torch.tensor(list(image_data), dtype=torch.uint8).cuda()
+                
+                # Transfer the tensor back to CPU and convert to numpy array
+                image_array = image_tensor.detach().cpu().numpy()
+                
+                # Decode the image using OpenCV
+                image = cv2.imdecode(np.frombuffer(image_array, dtype=np.uint8), cv2.IMREAD_COLOR_RGB)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 
                 # Convert to PIL Image
                 pil_img = PIL.Image.fromarray(image)
+                
+                #image_array = np.frombuffer(image_data, dtype=np.uint8)
+                #image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+                #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                #
+                # Convert to PIL Image
+                #pil_img = PIL.Image.fromarray(image)
                 
                 # Display the image
                 self.display_image(pil_img)

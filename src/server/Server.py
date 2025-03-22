@@ -1,14 +1,14 @@
 
-from util import *
+from lib.util import *
 
 import numpy as np
 import tkinter as tk
 from time import sleep
-import LoggingHD as lg
+import lib.LoggingHD as lg
 import Globals as gb
 
 # Import the UI parser
-from ui_parser import TkUIParser
+from lib.ui_parser import TkUIParser
 
 class RemoteControlServer:
     def __init__(self, tk):
