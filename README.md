@@ -54,8 +54,9 @@ https://github.com/mCodingLLC/VideosSampleCode/tree/master/videos/135_modern_log
     "platform_version": "10.0.26100",
     "python_full_version": "3.13.2",
     "platform_python_implementation": "CPython",
-    "python_version": "3.13",
+    "python_version": "3.13"
     "sys_platform": "win32"
   }
 }
   
+Patreon : https://patreon.com/RAIRU254
